@@ -22,7 +22,7 @@ const app = express();
 app.use(cors());
 app.use(
   cors({
-    origin: 'https://mybestvenue.com', // Match your frontend URL
+    origin: 'http://localhost:5173', // Match your frontend URL
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],

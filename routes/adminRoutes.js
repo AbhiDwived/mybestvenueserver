@@ -3,10 +3,14 @@ import {
   registerAdmin,
   loginAdmin,
   updateAdminProfile,
+  getAllVendors,
+  getPendingVendors,
   approveVendor,
   verifyAdminOtp,
   resendAdminOtp,
   deleteVendorByAdmin,
+  getAllUsers,
+  deleteUserByAdmin, // ✅ New import
 } from '../controllers/adminController.js';
 
 import { VerifyAdmin } from '../middlewares/authMiddleware.js';
@@ -14,19 +18,22 @@ import { VerifyAdmin } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 router.post('/register', registerAdmin);
-
 router.post('/login', loginAdmin);
 
-// Verify vendor OTP
+// Verify admin OTP
 router.post('/admin_verify_otp', verifyAdminOtp);
 
-// Resend OTP to vendor
+// Resend admin OTP
 router.post('/resend_admin_otp', resendAdminOtp);
 
 router.put('/update/:adminId', VerifyAdmin, updateAdminProfile);
 
+router.get('/all_vendors', VerifyAdmin, getAllVendors);
+router.get('/pending_vendor', VerifyAdmin, getPendingVendors);
 router.put('/approve/:vendorId', VerifyAdmin, approveVendor);
-
 router.delete('/delete-vendor/:vendorId', VerifyAdmin, deleteVendorByAdmin);
+
+router.get('/all_users', VerifyAdmin, getAllUsers); // ✅ All users
+router.delete('/delete-user/:userId', VerifyAdmin, deleteUserByAdmin); // ✅ Delete user
 
 export default router;

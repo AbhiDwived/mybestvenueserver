@@ -2,6 +2,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import User from '../models/User.js';
 import Admin from '../models/Admin.js';
 import Vendor from '../models/Vendor.js';
 
@@ -252,6 +253,44 @@ export const approveVendor = async (req, res) => {
   }
 };
 
+export const getPendingVendors = async (req, res) => {
+  try {
+    const pendingVendors = await Vendor.find({ isApproved: false });
+
+    res.status(200).json({
+      message: 'Pending vendors fetched successfully',
+      vendors: pendingVendors,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: 'Error fetching pending vendors',
+      error: error.message,
+    });
+  }
+};
+
+export const getAllVendors = async (req, res) => {
+  try {
+    const vendors = await Vendor.find().select("businessName vendorType contactName email phone createdAt");
+
+    const formattedVendors = vendors.map((vendor) => ({
+      _id: vendor._id,
+      name: vendor.businessName,
+      email: vendor.email,
+      phone: vendor.phone,
+      appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
+      category: vendor.vendorType,
+    }));
+
+    res.status(200).json({
+      message: "Vendors fetched successfully",
+      vendors: formattedVendors,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching vendors", error: error.message });
+  }
+};
+
 export const deleteVendorByAdmin = async (req, res) => {
   const { vendorId } = req.params;
 
@@ -268,5 +307,47 @@ export const deleteVendorByAdmin = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting vendor', error: error.message });
+  }
+};
+
+// Get All Users
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select('-password'); // Exclude sensitive fields
+
+    const formattedUsers = users.map((user) => ({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone || '',
+      createdAt: user.createdAt?.toISOString().split('T')[0] || 'N/A',
+      role: user.role || 'user',
+    }));
+
+    res.status(200).json({
+      message: 'Users fetched successfully',
+      users: formattedUsers,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching users', error: error.message });
+  }
+};
+
+export const deleteUserByAdmin = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const deletedUser = await User.findByIdAndDelete(userId);
+
+    if (!deletedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({
+      message: 'User deleted successfully by admin',
+      user: deletedUser,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting user', error: error.message });
   }
 };
