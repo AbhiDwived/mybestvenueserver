@@ -1,5 +1,6 @@
 // server/middlewares/authMiddleware.js
 import jwt from 'jsonwebtoken';
+import Vendor from '../models/Vendor.js';
 
 const verifyToken = (req, res) => {
   const authHeader = req.headers.authorization;
@@ -49,4 +50,18 @@ export const VerifyAdmin = (req, res, next) => {
   next();
 };
 
-
+// ✅ Check if Vendor is Approved
+export const CheckVendorApproval = async (req, res, next) => {
+  try {
+    const vendor = await Vendor.findById(req.user.id); // ✅ Use Vendor model
+    if (!vendor || vendor.role !== 'vendor') {
+      return res.status(403).json({ message: 'Access denied: Not a valid vendor' });
+    }
+    if (!vendor.isApproved) {
+      return res.status(403).json({ message: 'Access denied: Vendor not approved. Please contact admin.' });
+    }
+    next();
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error during approval check' });
+  }
+};

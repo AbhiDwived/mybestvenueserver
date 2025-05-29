@@ -29,6 +29,9 @@ export const registerVendor = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000;
 
+    // Handle profile picture
+    const profilePicture = req.file ? `/uploads/vendors/${req.file.filename}` : null;
+
     // Create new vendor
     const newVendor = new Vendor({
       businessName,
@@ -41,6 +44,7 @@ export const registerVendor = async (req, res) => {
       otpExpires,
       isVerified: false,
       termsAccepted: false,
+      profilePicture,
     });
 
     await newVendor.save();
@@ -275,18 +279,19 @@ export const loginVendor = async (req, res) => {
     );
 
     res.status(200).json({
-      message: 'Login successful',
-      token,
-      vendor: {
-        id: vendor._id,
-        businessName: vendor.businessName,
-        vendorType: vendor.vendorType,
-        contactName: vendor.contactName,
-        email: vendor.email,
-        phone: vendor.phone,
-        role: vendor.role,
-      },
-    });
+  message: 'Login successful',
+  token,
+  vendor: {
+    id: vendor._id,
+    businessName: vendor.businessName,
+    vendorType: vendor.vendorType,
+    contactName: vendor.contactName,
+    email: vendor.email,
+    phone: vendor.phone,
+    role: vendor.role,
+    isApproved: vendor.isApproved, // ✅ Add this line
+  },
+});
 
   } catch (error) {
     res.status(500).json({ message: 'Error logging in', error: error.message });
@@ -303,6 +308,7 @@ export const updateVendorProfile = async (req, res) => {
     email,
     phone,
     address,
+    isApproved,
     serviceAreas,
     description,
     yearsInBusiness,
@@ -325,6 +331,7 @@ export const updateVendorProfile = async (req, res) => {
         email,
         phone,
         address,
+        isApproved,
         serviceAreas,
         description,
         yearsInBusiness,

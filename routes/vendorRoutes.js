@@ -1,4 +1,6 @@
 import express from 'express';
+import upload from '../middlewares/upload.js';
+
 import {
   registerVendor,
   verifyVendorOtp,
@@ -11,12 +13,12 @@ import {
   resetVendorPassword,
 } from '../controllers/vendorController.js';
 
-import { VerifyVendor, VerifyAdmin } from '../middlewares/authMiddleware.js';
+import { VerifyVendor, VerifyAdmin ,CheckVendorApproval,} from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
 // Register new vendor (with OTP)
-router.post('/register', registerVendor);
+router.post('/register', upload.single('profilePicture'), registerVendor);
 
 // Verify vendor OTP
 router.post('/vendorverify-otp', verifyVendorOtp);
@@ -37,7 +39,8 @@ router.post('/forgot_password_otp', verifyVendorResetOtp);
 router.post('/reset_password', resetVendorPassword);
 
 // Update vendor profile (only authenticated vendors can update their profile)
-router.put('/update/:vendorId', VerifyVendor, updateVendorProfile);
+router.put('/update/:vendorId', VerifyVendor, CheckVendorApproval, upload.single('profilePicture'), updateVendorProfile);
+
 
 // Delete vendor (only admin can delete vendors for now)
 router.delete('/delete/:vendorId', VerifyAdmin, deleteVendor);
