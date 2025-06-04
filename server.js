@@ -10,6 +10,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import errorHandler from './middlewares/errorHandler.js';
 import venueRoutes from './routes/venueRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
+import activityRoutes from './routes/activityRoutes.js';
 
 
 dotenv.config();  // Load environment variables from .env file
@@ -19,7 +20,6 @@ connectDB();  // Connect to MongoDB
 const app = express();
 
 // Middleware to handle CORS, JSON requests, and cookies
-app.use(cors());
 app.use(
   cors({
     origin: 'http://localhost:5173', // Match your frontend URL
@@ -41,6 +41,7 @@ app.use('/api/v1/vendor', vendorRoutes); // Route for vendor operations
 app.use('/api/v1/admin', adminRoutes);   // Route for admin operations
 app.use('/api/v1/venue', venueRoutes);
 app.use('/api/v1/category', categoryRoutes);
+app.use('/api/v1/activity', activityRoutes);
 
 
 // Error Handling Middleware (should be last)

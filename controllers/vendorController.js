@@ -263,9 +263,16 @@ export const resetVendorPassword = async (req, res) => {
 
 // Login vendor
 export const loginVendor = async (req, res) => {
+  console.log("#######################Login Vendor Api Executed######################")
   const { email, password } = req.body;
   try {
     const vendor = await Vendor.findOne({ email }).select('+password');
+    if(vendor){
+    const status = await Vendor.findOneAndUpdate({ email: vendor.email }, { status:"Active" },{new: true});
+      // console.log("Status",status)
+  }
+
+    
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
 
     const isMatch = await bcrypt.compare(password, vendor.password);
@@ -290,6 +297,7 @@ export const loginVendor = async (req, res) => {
     phone: vendor.phone,
     role: vendor.role,
     isApproved: vendor.isApproved, // ✅ Add this line
+    status: vendor.status
   },
 });
 
@@ -301,6 +309,8 @@ export const loginVendor = async (req, res) => {
 // Update vendor profile
 export const updateVendorProfile = async (req, res) => {
   const { vendorId } = req.params;
+  const profilePicture = req.file?.path;
+  // return console.log("profilePicture", profilePicture);
   const {
     businessName,
     vendorType,
@@ -319,9 +329,11 @@ export const updateVendorProfile = async (req, res) => {
     media,
     paymentDetails,
     termsAccepted,
+    
   } = req.body;
 
   try {
+    console.log("################### Update Vendor Api Executed #################")
     const updatedVendor = await Vendor.findByIdAndUpdate(
       vendorId,
       {
@@ -342,6 +354,7 @@ export const updateVendorProfile = async (req, res) => {
         media,
         paymentDetails,
         termsAccepted,
+        profilePicture:profilePicture
       },
       { new: true }
     );
@@ -356,6 +369,7 @@ export const updateVendorProfile = async (req, res) => {
     });
 
   } catch (error) {
+    console.log("error", error)
     res.status(500).json({ message: 'Error updating vendor', error: error.message });
   }
 };
@@ -376,4 +390,27 @@ export const deleteVendor = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Error deleting vendor', error: error.message });
   }
+};
+
+
+// get Vendor by id 
+export const getVendorById = async (req, res) => {
+  const { vendorId } = req.params;
+
+  try {
+    const vendor = await Vendor.find({_id:vendorId }); // <-- FIXED LINE
+    if (!vendor) {
+      console.log('Vendor not found  for Id:', vendorId);
+      return res.status(404).json({ message: 'Vendor not found' });
+
+
+    }
+
+    res.status(200).json({
+      message: 'Vendor found successfully',
+      vendor,
+    });    
+  } catch (error) {
+    res.status(500).json({ message: 'Error getting vendor', error: error.message });
+  }        
 };

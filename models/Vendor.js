@@ -30,6 +30,18 @@ const vendorSchema = new mongoose.Schema(
       minlength: 6,
       select: false,
     },
+    profilePicture:{
+      type: String,
+      default: '',
+
+    },
+    status: {
+      type: String,
+      default: 'Active',
+      enum: ['Active', 'InActive'],
+      
+    },
+
     address: {
       street: String,
       city: String,
