@@ -20,13 +20,27 @@ connectDB();  // Connect to MongoDB
 const app = express();
 
 // Middleware to handle CORS, JSON requests, and cookies
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://mybestvenue.com'
+];
+
 app.use(
   cors({
-    origin: 'https://mybestvenue.com', // Match your frontend URL
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    exposedHeaders: ['Set-Cookie', '*'],
+    exposedHeaders: ['Set-Cookie']
   })
 );
 
