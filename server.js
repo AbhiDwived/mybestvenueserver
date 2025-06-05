@@ -29,7 +29,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
@@ -49,10 +48,13 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
+// Serve uploads folder statically
+app.use('/uploads', express.static('uploads'));
+
 // API Versioning Routes
-app.use('/api/v1/user', userRoutes);   // Route for user operations
-app.use('/api/v1/vendor', vendorRoutes); // Route for vendor operations
-app.use('/api/v1/admin', adminRoutes);   // Route for admin operations
+app.use('/api/v1/user', userRoutes);  
+app.use('/api/v1/vendor', vendorRoutes); 
+app.use('/api/v1/admin', adminRoutes);   
 app.use('/api/v1/venue', venueRoutes);
 app.use('/api/v1/category', categoryRoutes);
 app.use('/api/v1/activity', activityRoutes);

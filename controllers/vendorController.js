@@ -119,6 +119,7 @@ export const verifyVendorOtp = async (req, res) => {
         email: vendor.email,
         phone: vendor.phone,
         role: vendor.role,
+         profilePicture: vendor.profilePicture,  // Add this line
       },
     });
 
@@ -296,6 +297,7 @@ export const loginVendor = async (req, res) => {
     email: vendor.email,
     phone: vendor.phone,
     role: vendor.role,
+     profilePicture: vendor.profilePicture,  // Add this line
     isApproved: vendor.isApproved, // ✅ Add this line
     status: vendor.status
   },
@@ -398,7 +400,7 @@ export const getVendorById = async (req, res) => {
   const { vendorId } = req.params;
 
   try {
-    const vendor = await Vendor.find({_id:vendorId }); // <-- FIXED LINE
+    const vendor = await Vendor.findById(vendorId); // <-- FIXED LINE
     if (!vendor) {
       console.log('Vendor not found  for Id:', vendorId);
       return res.status(404).json({ message: 'Vendor not found' });

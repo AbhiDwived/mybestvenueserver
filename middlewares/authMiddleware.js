@@ -21,9 +21,19 @@ const verifyToken = (req, res) => {
 export const VerifyUser = (req, res, next) => {
   const { decoded, error } = verifyToken(req, res);
   if (error) return res.status(401).json({ message: error });
+
+  console.log('Decoded token:', decoded);
+
+  if (!decoded.role) {
+    console.log('Role missing in token!');
+  } else if (decoded.role !== 'user') {
+    console.log(`Role is not user, it is: ${decoded.role}`);
+  }
+
   if (decoded.role !== 'user') {
     return res.status(403).json({ message: 'Access denied: Not a user' });
   }
+
   req.user = decoded;
   next();
 };

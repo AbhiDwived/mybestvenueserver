@@ -271,7 +271,8 @@ export const getPendingVendors = async (req, res) => {
 
 export const getAllVendors = async (req, res) => {
   try {
-    const vendors = await Vendor.find().select("businessName vendorType contactName email phone createdAt isApproved");
+    // Include profilePicture in the selection
+    const vendors = await Vendor.find().select("businessName vendorType contactName email phone createdAt isApproved profilePicture");
 
     const formattedVendors = vendors.map((vendor) => ({
       _id: vendor._id,
@@ -281,6 +282,7 @@ export const getAllVendors = async (req, res) => {
       isApproved: vendor.isApproved,
       appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
       category: vendor.vendorType,
+      profilePicture: vendor.profilePicture || null, // ✅ Include profile picture
     }));
 
     res.status(200).json({
@@ -291,6 +293,7 @@ export const getAllVendors = async (req, res) => {
     res.status(500).json({ message: "Error fetching vendors", error: error.message });
   }
 };
+
 
 
 export const deleteVendorByAdmin = async (req, res) => {

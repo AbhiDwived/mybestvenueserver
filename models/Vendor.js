@@ -30,7 +30,7 @@ const vendorSchema = new mongoose.Schema(
       minlength: 6,
       select: false,
     },
-    profilePicture:{
+    profilePicture: {
       type: String,
       default: '',
 
@@ -39,7 +39,7 @@ const vendorSchema = new mongoose.Schema(
       type: String,
       default: 'Active',
       enum: ['Active', 'InActive'],
-      
+
     },
 
     address: {
@@ -69,7 +69,10 @@ const vendorSchema = new mongoose.Schema(
       linkedin: String,
       others: String,
     },
-    profilePicture: String,
+    profilePicture: {
+      type: String,
+      default: '',
+    },
     galleryImages: [
       {
         url: String,

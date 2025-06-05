@@ -36,7 +36,7 @@ export const register = async (req, res) => {
     });
 
     await newUser.save();
-    
+
     // Verify OTP was saved correctly
     const savedUser = await User.findById(newUser._id).select('+otp +otpExpires');
     console.log('Saved user OTP:', savedUser.otp);
@@ -85,7 +85,7 @@ export const verifyOtp = async (req, res) => {
   try {
     // FIXED: Add .select('+otp +otpExpires') to include fields with select:false
     const user = await User.findById(userId).select('+otp +otpExpires');
-    
+
     if (!user) {
       console.log('User not found for ID:', userId);
       return res.status(404).json({ message: 'User not found' });
@@ -109,7 +109,7 @@ export const verifyOtp = async (req, res) => {
     // Step 3: Compare OTP and check expiration
     const trimmedOtp = otp?.toString().trim();
     const storedOtp = user.otp?.toString();
-    
+
     // FIXED: Ensure both values are strings and properly compared
     const isOtpMatch = trimmedOtp === storedOtp;
     const isExpired = user.otpExpires < Date.now();
@@ -131,7 +131,7 @@ export const verifyOtp = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, email: user.email },
+      { id: user._id, email: user.email, role: user.role },  // <-- Add role here
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
@@ -345,7 +345,7 @@ export const login = async (req, res) => {
   try {
     // Make sure to select the password field
     const user = await User.findOne({ email }).select('+password');
-    
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -359,8 +359,12 @@ export const login = async (req, res) => {
       return res.status(403).json({ message: 'Email not verified' });
     }
 
+    // Debug log: show the payload that will be signed
+    const payload = { id: user._id, email: user.email, role: user.role };
+    console.log('Login token payload:', payload);
+
     const token = jwt.sign(
-      { id: user._id, email: user.email },
+      payload,
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
