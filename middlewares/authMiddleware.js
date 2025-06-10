@@ -3,19 +3,28 @@ import jwt from 'jsonwebtoken';
 import Vendor from '../models/Vendor.js';
 
 const verifyToken = (req, res) => {
+  console.log('Authorization header:', req.headers.authorization);
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return { error: 'Authorization token missing or malformed' };
   }
 
   const token = authHeader.split(' ')[1];
+
+  console.log('Token to verify:', token);
+  console.log('JWT secret:', process.env.JWT_SECRET ? 'Loaded' : 'Missing');
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Token decoded:', decoded);
     return { decoded };
   } catch (err) {
+    console.error('❌ Token verification error:', err.message);
     return { error: 'Token is invalid or expired' };
   }
 };
+
+
 
 // Add this for user verification
 export const VerifyUser = (req, res, next) => {
@@ -75,3 +84,4 @@ export const CheckVendorApproval = async (req, res, next) => {
     return res.status(500).json({ message: 'Server error during approval check' });
   }
 };
+

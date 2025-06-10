@@ -102,11 +102,11 @@ export const verifyVendorOtp = async (req, res) => {
     vendor.otpExpires = undefined;
     await vendor.save();
 
-    const token = jwt.sign(
-      { id: vendor._id, email: vendor.email, role: vendor.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+const token = jwt.sign(
+  { id: vendor._id, email: vendor.email, role: vendor.role },
+  process.env.JWT_SECRET,
+  { expiresIn: '1h' }
+);
 
     res.status(200).json({
       message: 'Vendor verified successfully',
@@ -280,11 +280,11 @@ export const loginVendor = async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
     if (!vendor.isVerified) return res.status(403).json({ message: 'Email not verified' });
 
-    const token = jwt.sign(
-      { id: vendor._id, email: vendor.email, role: vendor.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+const token = jwt.sign(
+  { id: vendor._id, email: vendor.email, role: vendor.role },
+  process.env.JWT_SECRET,
+  { expiresIn: '1h' }
+);
 
     res.status(200).json({
   message: 'Login successful',
