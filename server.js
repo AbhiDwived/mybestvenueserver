@@ -11,6 +11,7 @@ import errorHandler from './middlewares/errorHandler.js';
 import venueRoutes from './routes/venueRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import activityRoutes from './routes/activityRoutes.js';
+import blogRoutes from './routes/blogRoutes.js';
 
 
 dotenv.config();  // Load environment variables from .env file
@@ -58,6 +59,7 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/venue', venueRoutes);
 app.use('/api/v1/category', categoryRoutes);
 app.use('/api/v1/activity', activityRoutes);
+app.use('/api/v1/blog', blogRoutes); // Ensure blogRoutes is imported from the correct path
 
 
 // Error Handling Middleware (should be last)

@@ -2,6 +2,7 @@
 
 import Blog from '../models/Blog.js';
 import Vendor from '../models/Vendor.js';
+import Admin from '../models/Admin.js'; // Assuming you have an Admin model
 import User from '../models/User.js';
 
 // Create a new blog post (admin/vendor only)
@@ -92,12 +93,23 @@ export const getBlogById = async (req, res) => {
 // Update a blog post
 export const updateBlog = async (req, res) => {
   try {
-    const updatedBlog = await Blog.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
+    const updateData = { ...req.body };
+    
+    // ✅ If a new image is uploaded, update the featuredImage path
+    if (req.file) {
+      updateData.featuredImage = `/uploads/vendors/${req.file.filename}`;
+    }
+
+    const updatedBlog = await Blog.findByIdAndUpdate(
+      req.params.id, 
+      updateData, 
+      { new: true }
+    );
+    
     if (!updatedBlog) {
       return res.status(404).json({ message: 'Blog not found' });
     }
+    
     res.status(200).json({
       message: 'Blog updated successfully',
       blog: updatedBlog,

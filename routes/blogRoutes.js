@@ -14,6 +14,7 @@ import { VerifyVendor, VerifyAdmin } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 // Create blog post (admin or verified vendor only) with image upload
+// router.post('/create', VerifyVendor, upload.single('featuredImage'), createBlog);
 router.post('/create', VerifyVendor, upload.single('image'), createBlog);
 
 // Get all blogs (public)
@@ -23,7 +24,7 @@ router.get('/getallblogs', getAllBlogs);
 router.get('/getblog/:id', getBlogById);
 
 // Update blog (admin/vendor only)
-router.put('/updateblog/:id', VerifyVendor, updateBlog);
+router.put('/updateblog/:id', VerifyVendor,upload.single('featuredImage'), updateBlog);
 
 // Delete blog (admin/vendor only)
 router.delete('/deleteblog/:id', VerifyVendor, deleteBlog);

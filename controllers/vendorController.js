@@ -105,7 +105,7 @@ export const verifyVendorOtp = async (req, res) => {
 const token = jwt.sign(
   { id: vendor._id, email: vendor.email, role: vendor.role },
   process.env.JWT_SECRET,
-  { expiresIn: '1h' }
+  { expiresIn: '7D' }
 );
 
     res.status(200).json({
@@ -283,7 +283,7 @@ export const loginVendor = async (req, res) => {
 const token = jwt.sign(
   { id: vendor._id, email: vendor.email, role: vendor.role },
   process.env.JWT_SECRET,
-  { expiresIn: '1h' }
+  { expiresIn: '7D' }
 );
 
     res.status(200).json({

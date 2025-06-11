@@ -133,7 +133,7 @@ export const verifyOtp = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role },  // <-- Add role here
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '7D' }
     );
 
     res.status(200).json({
@@ -366,7 +366,7 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '7D' }
     );
 
     res.status(200).json({
