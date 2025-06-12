@@ -12,7 +12,7 @@ import venueRoutes from './routes/venueRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import activityRoutes from './routes/activityRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
-import adminblogRoutes from './routes/adminBlogRoutes.js';
+import adminBlogRoutes from './routes/adminBlogRoutes.js';
 
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -67,7 +67,7 @@ app.use('/api/v1/venue', venueRoutes);
 app.use('/api/v1/category', categoryRoutes);
 app.use('/api/v1/activity', activityRoutes);
 app.use('/api/v1/blog', blogRoutes); 
-app.use('/api/v1/blog/admin', adminblogRoutes); 
+app.use('/api/v1/admin/blog', adminBlogRoutes); 
 
 
 // Error Handling Middleware (should be last)

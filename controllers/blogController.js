@@ -1,8 +1,5 @@
-// File: server/controllers/blogController.js
-
 import Blog from '../models/Blog.js';
 import Vendor from '../models/Vendor.js';
-import Admin from '../models/Admin.js'; // Assuming you have an Admin model
 import User from '../models/User.js';
 
 // Create a new blog post (admin/vendor only)

@@ -267,6 +267,7 @@ export const resetVendorPassword = async (req, res) => {
 
 // Login vendor
 export const loginVendor = async (req, res) => {
+  console.log("#######################Login Vendor Api Executed######################")
   const { email, password } = req.body;
   try {
     const vendor = await Vendor.findOne({ email }).select('+password');
@@ -313,8 +314,11 @@ export const loginVendor = async (req, res) => {
 // Update vendor profile
 export const updateVendorProfile = async (req, res) => {
   const { vendorId } = req.params;
-  console.log(vendorId, 'vendor id')
-  const profilePicture = req.file?.path;
+  
+  // const profilePicture = req.file?.path;
+    let profilePicture = req.file?.path
+    ? '/' + req.file.path.replace(/\\/g, '/').replace(/^\/+/, '')
+    : null;
   // return console.log("profilePicture", profilePicture);
   const {
     businessName,
@@ -398,14 +402,14 @@ export const deleteVendor = async (req, res) => {
 };
 
 
-// get Vendor by id 
+// ########################### get Vendor by id ####################
 export const getVendorById = async (req, res) => {
   const { vendorId } = req.params;
 
   try {
     const vendor = await Vendor.find({ _id: vendorId }); 
     if (!vendor) {
-      console.log('Vendor not found  for Id:', vendorId);
+      
       return res.status(404).json({ message: 'Vendor not found' });
 
 
@@ -420,7 +424,7 @@ export const getVendorById = async (req, res) => {
   }
 };
 
-// addUserInquiry Reply by vendor
+// ############################### addUserInquiry Reply by vendor ###############################
 
 
 export const addUserInquiryReply = async (req, res) => {
@@ -463,7 +467,7 @@ export const addUserInquiryReply = async (req, res) => {
     );
 
 
-    console.log(inquiry, 'innnnnnnn')
+    
     if (!inquiry) {
       return res.status(404).json({ message: "Inquiry not found for the messageId" });
     }
@@ -484,10 +488,11 @@ export const addUserInquiryReply = async (req, res) => {
   }
 };
 
-// getVendorReplied
+
+// Get Vendorreplied Inquiry List
 export const getVendorRepliedInquiryList = async (req, res) => {
   try {
-    console.log("################### getUserInquiry Replied by Vendor Api Executed ###########################");
+  
     const { vendorId } = req.body;
 
     const userInquiryList = await inquirySchema.find({ vendorId })

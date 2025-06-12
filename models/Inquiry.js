@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import moment from 'moment';
-const InquirySchema = new mongoose.Schema({
+const Inquiry = new mongoose.Schema({
 
     vendorId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -66,5 +66,6 @@ const InquirySchema = new mongoose.Schema({
         default: "Pending"
     }
 }, { timestamps: true })
-const UserInquiry = mongoose.model('Inquiry', InquirySchema)
+const UserInquiry = mongoose.model('Inquiry', Inquiry
+)
 export default UserInquiry

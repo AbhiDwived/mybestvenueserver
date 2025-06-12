@@ -1,5 +1,5 @@
 import express from 'express';
-import upload from '../middlewares/upload.js';  // your multer config file
+import upload from '../middlewares/upload.js';  
 import {
   createBlog,
   getAllBlogs,
@@ -8,7 +8,7 @@ import {
   deleteBlog,
   getBlogsByCategory,
   searchBlogs
-} from '../controllers/blogController.js';
+} from '../controllers/adminBlogController.js';
 import { VerifyAdmin } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();

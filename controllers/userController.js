@@ -523,10 +523,18 @@ export const getWishlist = async (req, res) => {
   }
 };
 
-// add reply message api
+
+
+
+
+
+
+
+
+// ################################### add reply message api ####################################
 export const addUserInquiryMessage = async (req, res) => {
   try {
-    console.log("################### addReplyMessage Api Executed ###########################");
+   
 
     const { userId } = req.params;
     const { message, vendorId } = req.body;
@@ -566,7 +574,7 @@ export const addUserInquiryMessage = async (req, res) => {
     });
 
   } catch (error) {
-    console.log("error", error)
+    
     res.status(500).json({
       message: 'Error saving user inquiry',
       error: error.message
@@ -575,11 +583,11 @@ export const addUserInquiryMessage = async (req, res) => {
 };
 
 
-// Get userinquiry List api 
+// ############################### Get userinquiry List api ######################################
 
 export const getUserInquiryList = async (req, res) => {
   try {
-    console.log("################### getUserInquiryList Api Executed ###########################");
+    
     const { userId } = req.body;
     // const userInquiryList = await userInquiry.find({email:email}).sort({ createdAt: -1 });
     const userInquiryList = await inquirySchema.find({ userId })
@@ -596,11 +604,11 @@ export const getUserInquiryList = async (req, res) => {
     res.status(500).json({ message: 'Error fetching user inquiry list', error: error.message });
   }
 }
-// Update userinquiry api 
+// ###################################  Update userinquiry api ####################################
 
 export const updateUserInquiry = async (req, res) => {
   try {
-    console.log("################### updateUserInquiry Api Executed ###########################");
+    
     const { inquiryId } = req.params;
     if (!inquiryId) return res.status(404).json({ message: "Inquiry not found" });
     const { userId, weddingDate, message } = req.body;

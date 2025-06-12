@@ -1,46 +1,25 @@
-// File: server/controllers/blogController.js
-
 import Blog from '../models/Blog.js';
-import Admin from '../models/Admin.js'; // Assuming you have an Admin model
-import User from '../models/User.js';
-import Vendor from '../models/Vendor.js'; // Add this import
+import Admin from '../models/Admin.js';
 
-// Create a new blog post (admin/vendor only)
 export const createBlog = async (req, res) => {
-  console.log('👤 User from token:', req.user);
-  console.log('📩 Incoming headers:', req.headers);
-
   try {
     const { title, category, excerpt, content } = req.body;
-    const image = req.file; // Get uploaded image via multer
+    const image = req.file;
 
-    // Validate required fields
     if (!title || !category || !excerpt || !content || !image) {
       return res.status(400).json({ message: 'All fields are required, including image' });
     }
 
-    // Check role from token payload (req.user is set by VerifyAdmin/VerifyVendor middleware)
-    if (req.user.role !== 'admin' && req.user.role !== 'vendor') {
-      return res.status(403).json({ message: 'Not authorized to create blog' });
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied: Not an admin' });
     }
 
-    let creator;
-
-    if (req.user.role === 'admin') {
-      // Use req.user.id which is set by VerifyAdmin middleware
-      creator = await User.findById(req.user.id);
-      if (!creator) {
-        return res.status(401).json({ message: 'Admin user not found' });
-      }
-    } else if (req.user.role === 'vendor') {
-      creator = await Vendor.findById(req.user.id);
-      if (!creator) {
-        return res.status(401).json({ message: 'Vendor user not found' });
-      }
+    const admin = await Admin.findOne({ email: req.user.email });
+    if (!admin) {
+      return res.status(401).json({ message: 'Admin not found in database' });
     }
 
-    // ✅ Correct image path based on upload directory
-    const featuredImage = `/uploads/vendors/${image.filename}`;
+    const featuredImage = `/uploads/admin/${image.filename}`;
 
     const newBlog = await Blog.create({
       title,
@@ -48,17 +27,17 @@ export const createBlog = async (req, res) => {
       featuredImage,
       excerpt,
       content,
-      createdBy: creator._id,
-      createdByModel: req.user.role === 'admin' ? 'User' : 'Vendor',
+      createdBy: admin._id,
+      createdByModel: 'Admin',
     });
 
     res.status(201).json({
-      message: 'Blog post created successfully',
+      message: 'Admin blog post created successfully',
       blog: newBlog,
     });
   } catch (error) {
-    console.error('Error creating blog:', error.message);
-    res.status(500).json({ message: 'Error creating blog post', error: error.message });
+    console.error('❌ Error creating blog:', error.message);
+    res.status(500).json({ message: 'Error creating blog', error: error.message });
   }
 };
 
@@ -91,39 +70,25 @@ export const getBlogById = async (req, res) => {
   }
 };
 
-// Update a blog post (with admin/vendor authorization check)
+// Update a blog post
 export const updateBlog = async (req, res) => {
   try {
-    // First, find the blog to check ownership
-    const blog = await Blog.findById(req.params.id);
-    if (!blog) {
-      return res.status(404).json({ message: 'Blog not found' });
-    }
-
-    // Check if the user is authorized to update this blog
-    const userId = req.user.id; // From VerifyAdmin/VerifyVendor middleware
-    const userRole = req.user.role;
-
-    // Only allow update if:
-    // 1. Admin updating their own blog
-    // 2. Vendor updating their own blog
-    if (blog.createdBy.toString() !== userId) {
-      return res.status(403).json({ message: 'Not authorized to update this blog' });
-    }
-
     const updateData = { ...req.body };
-    
-    // ✅ If a new image is uploaded, update the featuredImage path
+
     if (req.file) {
-      updateData.featuredImage = `/uploads/vendors/${req.file.filename}`;
+      updateData.featuredImage = `/uploads/admin/${req.file.filename}`;
     }
 
     const updatedBlog = await Blog.findByIdAndUpdate(
-      req.params.id, 
-      updateData, 
+      req.params.id,
+      updateData,
       { new: true }
     );
-    
+
+    if (!updatedBlog) {
+      return res.status(404).json({ message: 'Blog not found' });
+    }
+
     res.status(200).json({
       message: 'Blog updated successfully',
       blog: updatedBlog,
@@ -133,24 +98,13 @@ export const updateBlog = async (req, res) => {
   }
 };
 
-// Delete a blog post (with admin/vendor authorization check)
+// Delete a blog post
 export const deleteBlog = async (req, res) => {
   try {
-    // First, find the blog to check ownership
-    const blog = await Blog.findById(req.params.id);
-    if (!blog) {
+    const deletedBlog = await Blog.findByIdAndDelete(req.params.id);
+    if (!deletedBlog) {
       return res.status(404).json({ message: 'Blog not found' });
     }
-
-    // Check if the user is authorized to delete this blog
-    const userId = req.user.id; // From VerifyAdmin/VerifyVendor middleware
-    
-    // Only allow delete if the user created the blog
-    if (blog.createdBy.toString() !== userId) {
-      return res.status(403).json({ message: 'Not authorized to delete this blog' });
-    }
-
-    await Blog.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: 'Blog deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting blog', error: error.message });
@@ -189,26 +143,5 @@ export const searchBlogs = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error searching blogs', error: error.message });
-  }
-};
-
-// Add this new function for admin-specific blog operations
-export const getAdminBlogs = async (req, res) => {
-  try {
-    const adminId = req.user.id; // From VerifyAdmin middleware
-    
-    // Get all blogs created by this admin
-    const blogs = await Blog.find({ 
-      createdBy: adminId,
-      createdByModel: 'User' // Since admins are stored in User model
-    }).sort({ createdAt: -1 });
-
-    res.status(200).json({
-      message: 'Admin blogs fetched successfully',
-      blogs,
-      count: blogs.length
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching admin blogs', error: error.message });
   }
 };
