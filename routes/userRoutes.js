@@ -13,6 +13,11 @@ import {
   addToWishlist,
   removeFromWishlist,
   getWishlist,
+  // sendUserInquiry,
+  updateUserInquiry,
+  getUserInquiryList,
+
+  addUserInquiryMessage,
 } from '../controllers/userController.js';
 
 import { VerifyUser } from '../middlewares/authMiddleware.js';
@@ -46,5 +51,15 @@ router.delete('/wishlist/:venueId', VerifyUser, removeFromWishlist);
 router.get('/wishlist', VerifyUser, getWishlist);
 
 router.post('/logout', logout);
+
+// user inquiry route 
+
+// router.post('/senduser_inquiry', VerifyUser,sendUserInquiry);
+router.put('/updateuser_inquiry/:inquiryId', VerifyUser,updateUserInquiry);
+router.post('/getuser_inquiryList', VerifyUser,getUserInquiryList);
+
+// reply route 
+router.post('/userInquiryMessage/:userId', VerifyUser,addUserInquiryMessage);
+
 
 export default router;

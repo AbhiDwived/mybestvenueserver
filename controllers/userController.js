@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Venue from '../models/Venue.js';
+import inquirySchema from '../models/Inquiry.js';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
@@ -133,7 +134,7 @@ export const verifyOtp = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role },  // <-- Add role here
       process.env.JWT_SECRET,
-      { expiresIn: '7D' }
+      { expiresIn: '1h' }
     );
 
     res.status(200).json({
@@ -366,7 +367,7 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: '7D' }
+      { expiresIn: '1h' }
     );
 
     res.status(200).json({
@@ -521,3 +522,96 @@ export const getWishlist = async (req, res) => {
     res.status(500).json({ message: 'Error fetching wishlist', error: error.message });
   }
 };
+
+// add reply message api
+export const addUserInquiryMessage = async (req, res) => {
+  try {
+    console.log("################### addReplyMessage Api Executed ###########################");
+
+    const { userId } = req.params;
+    const { message, vendorId } = req.body;
+
+    const userCheck = await User.findOne({ _id: userId });
+    // console.log("userCheck",userCheck)
+    if (!userCheck) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if an inquiry already exists
+    let inquiry = await inquirySchema.findOne({ userId, vendorId });
+
+    const messageEntry = {
+      message: message,
+
+    };
+
+    if (inquiry) {
+      // Add new message to existing inquiry
+      inquiry.userMessage.push(messageEntry);
+      await inquiry.save();
+    } else {
+      // Create a new inquiry
+      inquiry = await inquirySchema.create({
+        // name: userCheck.name,
+        // email: userCheck.email,
+        userId,
+        vendorId,
+        userMessage: [messageEntry]
+      });
+    }
+
+    res.status(200).json({
+      message: 'User inquiry saved successfully',
+      result: inquiry
+    });
+
+  } catch (error) {
+    console.log("error", error)
+    res.status(500).json({
+      message: 'Error saving user inquiry',
+      error: error.message
+    });
+  }
+};
+
+
+// Get userinquiry List api 
+
+export const getUserInquiryList = async (req, res) => {
+  try {
+    console.log("################### getUserInquiryList Api Executed ###########################");
+    const { userId } = req.body;
+    // const userInquiryList = await userInquiry.find({email:email}).sort({ createdAt: -1 });
+    const userInquiryList = await inquirySchema.find({ userId })
+      .sort({ createdAt: -1 })
+      .populate('vendorId', 'businessName');
+
+    const modifiedList = userInquiryList.map((inquiry) => ({
+      ...inquiry.toObject(),
+      business: inquiry.vendorId?.businessName || null,
+      vendorId: inquiry.vendorId?._id || null
+    }));
+    res.status(200).json({ message: 'User inquiry list fetched successfully', modifiedList });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching user inquiry list', error: error.message });
+  }
+}
+// Update userinquiry api 
+
+export const updateUserInquiry = async (req, res) => {
+  try {
+    console.log("################### updateUserInquiry Api Executed ###########################");
+    const { inquiryId } = req.params;
+    if (!inquiryId) return res.status(404).json({ message: "Inquiry not found" });
+    const { userId, weddingDate, message } = req.body;
+    const updatedUserInquiry = await inquirySchema.findByIdAndUpdate(
+      inquiryId,
+      { userId, weddingDate, message },
+      { new: true }
+    );
+    res.status(200).json({ message: 'User inquiry updated successfully', updatedUserInquiry });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating user inquiry', error: error.message });
+  }
+}
+

@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Vendor from '../models/Vendor.js';
+import inquirySchema from '../models/Inquiry.js';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
@@ -13,6 +14,7 @@ export const registerVendor = async (req, res) => {
   try {
     // Validate required fields
     if (!businessName || !vendorType || !contactName || !email || !phone || !password) {
+      // console.log("first",)
       return res.status(400).json({ message: "All required fields must be provided" });
     }
 
@@ -44,7 +46,9 @@ export const registerVendor = async (req, res) => {
       otpExpires,
       isVerified: false,
       termsAccepted: false,
+
       profilePicture,
+
     });
 
     await newVendor.save();
@@ -102,11 +106,11 @@ export const verifyVendorOtp = async (req, res) => {
     vendor.otpExpires = undefined;
     await vendor.save();
 
-const token = jwt.sign(
-  { id: vendor._id, email: vendor.email, role: vendor.role },
-  process.env.JWT_SECRET,
-  { expiresIn: '7D' }
-);
+    const token = jwt.sign(
+      { id: vendor._id, email: vendor.email, role: vendor.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
     res.status(200).json({
       message: 'Vendor verified successfully',
@@ -119,7 +123,6 @@ const token = jwt.sign(
         email: vendor.email,
         phone: vendor.phone,
         role: vendor.role,
-         profilePicture: vendor.profilePicture,  // Add this line
       },
     });
 
@@ -264,44 +267,43 @@ export const resetVendorPassword = async (req, res) => {
 
 // Login vendor
 export const loginVendor = async (req, res) => {
-  console.log("#######################Login Vendor Api Executed######################")
   const { email, password } = req.body;
   try {
     const vendor = await Vendor.findOne({ email }).select('+password');
-    if(vendor){
-    const status = await Vendor.findOneAndUpdate({ email: vendor.email }, { status:"Active" },{new: true});
+    if (vendor) {
+      const status = await Vendor.findOneAndUpdate({ email: vendor.email }, { status: "Active" }, { new: true });
       // console.log("Status",status)
-  }
+    }
 
-    
+
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
 
     const isMatch = await bcrypt.compare(password, vendor.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
     if (!vendor.isVerified) return res.status(403).json({ message: 'Email not verified' });
 
-const token = jwt.sign(
-  { id: vendor._id, email: vendor.email, role: vendor.role },
-  process.env.JWT_SECRET,
-  { expiresIn: '7D' }
-);
+    const token = jwt.sign(
+      { id: vendor._id, email: vendor.email, role: vendor.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
 
     res.status(200).json({
-  message: 'Login successful',
-  token,
-  vendor: {
-    id: vendor._id,
-    businessName: vendor.businessName,
-    vendorType: vendor.vendorType,
-    contactName: vendor.contactName,
-    email: vendor.email,
-    phone: vendor.phone,
-    role: vendor.role,
-     profilePicture: vendor.profilePicture,  // Add this line
-    isApproved: vendor.isApproved, // ✅ Add this line
-    status: vendor.status
-  },
-});
+      message: 'Login successful',
+      token,
+      vendor: {
+        id: vendor._id,
+        businessName: vendor.businessName,
+        vendorType: vendor.vendorType,
+        contactName: vendor.contactName,
+        email: vendor.email,
+        phone: vendor.phone,
+        role: vendor.role,
+        isApproved: vendor.isApproved, // ✅ Add this line
+        status: vendor.status,
+        profilePicture: vendor.profilePicture || ''
+      },
+    });
 
   } catch (error) {
     res.status(500).json({ message: 'Error logging in', error: error.message });
@@ -311,6 +313,7 @@ const token = jwt.sign(
 // Update vendor profile
 export const updateVendorProfile = async (req, res) => {
   const { vendorId } = req.params;
+  console.log(vendorId, 'vendor id')
   const profilePicture = req.file?.path;
   // return console.log("profilePicture", profilePicture);
   const {
@@ -331,7 +334,7 @@ export const updateVendorProfile = async (req, res) => {
     media,
     paymentDetails,
     termsAccepted,
-    
+
   } = req.body;
 
   try {
@@ -356,7 +359,7 @@ export const updateVendorProfile = async (req, res) => {
         media,
         paymentDetails,
         termsAccepted,
-        profilePicture:profilePicture
+        profilePicture: profilePicture
       },
       { new: true }
     );
@@ -364,7 +367,7 @@ export const updateVendorProfile = async (req, res) => {
     if (!updatedVendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
-
+ console.log("VENDORlIST",updatedVendor)
     res.status(200).json({
       message: 'Vendor profile updated successfully',
       vendor: updatedVendor,
@@ -378,7 +381,7 @@ export const updateVendorProfile = async (req, res) => {
 
 // Delete vendor
 export const deleteVendor = async (req, res) => {
-  const { vendorId } = req.params;
+  const { vendorId } = req.params.id;
   try {
     const deletedVendor = await Vendor.findByIdAndDelete(vendorId);
     if (!deletedVendor) {
@@ -400,7 +403,7 @@ export const getVendorById = async (req, res) => {
   const { vendorId } = req.params;
 
   try {
-    const vendor = await Vendor.findById(vendorId); // <-- FIXED LINE
+    const vendor = await Vendor.find({ _id: vendorId }); 
     if (!vendor) {
       console.log('Vendor not found  for Id:', vendorId);
       return res.status(404).json({ message: 'Vendor not found' });
@@ -411,8 +414,96 @@ export const getVendorById = async (req, res) => {
     res.status(200).json({
       message: 'Vendor found successfully',
       vendor,
-    });    
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error getting vendor', error: error.message });
-  }        
+  }
 };
+
+// addUserInquiry Reply by vendor
+
+
+export const addUserInquiryReply = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const { message, userId, messageId } = req.body;
+
+    if (!vendorId || !userId || !messageId || !message) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // Ensure vendor exists
+    const vendorCheck = await Vendor.findById(vendorId);
+    if (!vendorCheck) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    // Find the inquiry with that user and message ID
+    
+    const inquiry = await inquirySchema.findOneAndUpdate(
+      {
+        vendorId: vendorId,
+        userId: userId,
+        "userMessage._id": messageId
+      },
+      {
+        $set: {
+          "userMessage.$[elem].vendorReply": {
+            message: message,
+          },
+          replyStatus: "Replied"
+        }
+      },
+      {
+        arrayFilters: [
+          { "elem._id": messageId }
+        ],
+        new: true
+      }
+    );
+
+
+    console.log(inquiry, 'innnnnnnn')
+    if (!inquiry) {
+      return res.status(404).json({ message: "Inquiry not found for the messageId" });
+    }
+
+
+
+    res.status(200).json({
+      message: "Vendor reply saved successfully",
+      data: inquiry
+    });
+
+  } catch (error) {
+    console.log("error", error)
+    res.status(500).json({
+      message: "Error saving vendor reply",
+      error: error.message
+    });
+  }
+};
+
+// getVendorReplied
+export const getVendorRepliedInquiryList = async (req, res) => {
+  try {
+    console.log("################### getUserInquiry Replied by Vendor Api Executed ###########################");
+    const { vendorId } = req.body;
+
+    const userInquiryList = await inquirySchema.find({ vendorId })
+      .sort({ createdAt: -1 })
+      .populate('userId', 'name');
+
+    const modifiedList = userInquiryList.map((inquiry) => ({
+      ...inquiry.toObject(),
+      name: inquiry.userId?.name || null,
+      userId: inquiry.userId?._id || null
+    }));
+    res.status(200).json({ message: 'Vendor reply list fetched successfully', modifiedList });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching user inquiry list', error: error.message });
+  }
+};
+
+
+
