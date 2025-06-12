@@ -24,8 +24,6 @@ const verifyToken = (req, res) => {
   }
 };
 
-
-
 // Add this for user verification
 export const VerifyUser = (req, res, next) => {
   const { decoded, error } = verifyToken(req, res);

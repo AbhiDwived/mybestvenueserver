@@ -1,4 +1,5 @@
 import express from 'express';
+import upload from '../middlewares/upload.js';
 import {
   register,
   verifyOtp,
@@ -25,7 +26,7 @@ import { VerifyUser } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 // Register route
-router.post('/register', register);
+router.post("/register", upload.single("profilePhoto"), register);
 
 router.post('/verify-otp', verifyOtp);
 
@@ -40,7 +41,12 @@ router.post('/verify_password_reset', verifyPasswordReset);
 router.post('/reset_password', resetPassword);
 
 // Update user profile route (should accept userId as a URL parameter)
-router.put('/update-profile/:userId', VerifyUser, updateProfile);
+router.put(
+  "/update-profile/:userId",
+  VerifyUser,
+  upload.single("profilePhoto"),
+  updateProfile
+);
 
 // Delete user route (should accept userId as a URL parameter)
 router.delete('/delete/:userId', VerifyUser, deleteUser);
