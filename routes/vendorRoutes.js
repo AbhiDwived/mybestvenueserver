@@ -1,6 +1,7 @@
 import express from 'express';
 import upload from '../middlewares/upload.js';
 
+
 import {
   registerVendor,
   verifyVendorOtp,
@@ -11,6 +12,9 @@ import {
   vendorForgotPassword,
   verifyVendorResetOtp,
   resetVendorPassword,
+  getVendorById,
+  addUserInquiryReply,
+  getVendorRepliedInquiryList,
 } from '../controllers/vendorController.js';
 
 import { VerifyVendor, VerifyAdmin ,CheckVendorApproval,} from '../middlewares/authMiddleware.js';
@@ -44,5 +48,12 @@ router.put('/update/:vendorId', VerifyVendor, CheckVendorApproval, upload.single
 
 // Delete vendor (only admin can delete vendors for now)
 router.delete('/delete/:vendorId', VerifyAdmin, deleteVendor);
+// router.put('/updateVendor/:vendorId', VerifyAdmin, updateVendorProfile);
+
+router.post("/vendorbyId/:vendorId",VerifyVendor,getVendorById);
+
+router.post('/senduser_inquiryReply/:vendorId', VerifyVendor,addUserInquiryReply);
+
+router.post('/getVendorRepliedinquiryList', VerifyVendor,getVendorRepliedInquiryList);
 
 export default router;
