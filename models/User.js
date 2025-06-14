@@ -48,6 +48,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    weddingDate: {
+      type: Date,
+      default: null,
+    },
     // OTP-related fields
     otp: {
       type: String,

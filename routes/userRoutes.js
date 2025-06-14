@@ -18,14 +18,17 @@ import {
   getUserInquiryList,
 
   addUserInquiryMessage,
+  updatePassword,
 } from '../controllers/userController.js';
 
-import { VerifyUser } from '../middlewares/authMiddleware.js';
+import upload from "../middlewares/upload.js";
+import { VerifyUser } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-// Register route
-router.post('/register', register);
+
+// Register route with file upload
+router.post("/register", upload.single('profilePhoto'), register);
 
 router.post('/verify-otp', verifyOtp);
 
@@ -40,7 +43,12 @@ router.post('/verify_password_reset', verifyPasswordReset);
 router.post('/reset_password', resetPassword);
 
 // Update user profile route (should accept userId as a URL parameter)
-router.put('/update-profile/:userId', VerifyUser, updateProfile);
+router.put(
+  "/update-profile/:userId",
+  VerifyUser,
+  upload.single('profilePhoto'),
+  updateProfile
+);
 
 // Delete user route (should accept userId as a URL parameter)
 router.delete('/delete/:userId', VerifyUser, deleteUser);
@@ -61,5 +69,6 @@ router.post('/getuser_inquiryList', VerifyUser,getUserInquiryList);
 // ########### reply route #######################
 router.post('/userInquiryMessage/:userId', VerifyUser,addUserInquiryMessage);
 
+router.put('/update-password/:userId', updatePassword);
 
 export default router;

@@ -5,7 +5,16 @@ import fs from 'fs';
 // Set storage options
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = 'uploads/vendors/';
+    // Determine the upload directory based on the route
+    let uploadDir = 'uploads/';
+    
+    if (req.originalUrl.includes('/vendor')) {
+      uploadDir += 'vendors/';
+    } else if (req.originalUrl.includes('/user')) {
+      uploadDir += 'users/';
+    } else if (req.originalUrl.includes('/admin')) {
+      uploadDir += 'admin/';
+    }
 
     // Ensure the directory exists
     if (!fs.existsSync(uploadDir)) {
@@ -15,7 +24,9 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    // Generate a unique filename with timestamp
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   },
 });
 
@@ -32,6 +43,9 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
 });
 
 export default upload;

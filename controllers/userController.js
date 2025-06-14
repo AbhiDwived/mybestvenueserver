@@ -10,9 +10,14 @@ dotenv.config();
 
 // Register new user (with email OTP)
 export const register = async (req, res) => {
-  const { name, email, phone, password } = req.body;
-
   try {
+    const { name, email, phone, password } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !phone || !password) {
+      return res.status(400).json({ message: "All required fields must be provided" });
+    }
+
     // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -27,7 +32,7 @@ export const register = async (req, res) => {
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 mins from now
 
     // Handle profile photo
-    const profilePhoto = req.file ? `uploads/${req.file.filename}` : null;
+    const profilePhoto = req.file ? `/uploads/users/${req.file.filename}` : null;
 
     // Create user
     const newUser = new User({
@@ -409,61 +414,70 @@ export const login = async (req, res) => {
 
 // Update user profile
 export const updateProfile = async (req, res) => {
-  const { userId } = req.params;
-
   try {
-    // Destructure the incoming fields from the form
-    const { name, email, phone, address, city, state, country } = req.body;
+    const { userId } = req.params;
+    const { name, email, phone, address, city, state, country, weddingDate } = req.body;
 
-    // Construct the update object
-    const updateData = {
-      name,
-      email,
-      phone,
-      address,
-      city,
-      state,
-      country,
-    };
-
-    // If a file was uploaded, save the path
-    if (req.file) {
-      updateData.profilePhoto = `uploads/${req.file.filename}`;
+    // Validate required fields
+    if (!name || !email || !phone) {
+      return res.status(400).json({ message: "Name, email and phone are required" });
     }
 
-    // Update the user in DB
-    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
-      new: true,
-    });
+    // Check if email is being changed and if it's already in use
+    const existingUser = await User.findOne({ email });
+    if (existingUser && existingUser._id.toString() !== userId) {
+      return res.status(400).json({ message: "Email is already in use by another user" });
+    }
+
+    // Handle profile photo if uploaded
+    let profilePhoto;
+    if (req.file) {
+      profilePhoto = `/uploads/users/${req.file.filename}`;
+    }
+
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        name,
+        email,
+        phone,
+        address,
+        city,
+        state,
+        country,
+        weddingDate: weddingDate ? new Date(weddingDate) : null,
+        ...(profilePhoto && { profilePhoto }),
+      },
+      { new: true, runValidators: true }
+    ).select("-password");
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
     }
-    const userProfile = await User.findById(userId).select("+profilePhoto");
-    console.log(userProfile);
-    
-    // Respond with updated user info
+
+    // Format the response to include all necessary fields
+    const formattedUser = {
+      id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      phone: updatedUser.phone,
+      address: updatedUser.address,
+      city: updatedUser.city,
+      state: updatedUser.state,
+      country: updatedUser.country,
+      profilePhoto: updatedUser.profilePhoto,
+      weddingDate: updatedUser.weddingDate,
+      role: updatedUser.role
+    };
+
     res.status(200).json({
-      message: "User profile updated successfully",
-      user: {
-        id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        phone: updatedUser.phone,
-        address: updatedUser.address,
-        city: updatedUser.city,
-        state: updatedUser.state,
-        country: updatedUser.country,
-        profilePhoto: updatedUser.profilePhoto,
-        role: updatedUser.role,
-      },
+      message: "Profile updated successfully",
+      user: formattedUser
     });
   } catch (error) {
-    console.error("Profile update failed:", error);
-    res.status(500).json({
-      message: "Error updating profile",
-      error: error.message,
-    });
+    console.error("Profile update error:", error);
+    res.status(500).json({ message: "Error updating profile", error: error.message });
   }
 };
 
@@ -496,7 +510,6 @@ export const logout = async (req, res) => {
     res.status(500).json({ message: 'Error logging out', error: error.message });
   }
 };
-
 
 // Add venue to user's wishlist
 export const addToWishlist = async (req, res) => {
@@ -554,7 +567,6 @@ export const getWishlist = async (req, res) => {
     res.status(500).json({ message: 'Error fetching wishlist', error: error.message });
   }
 };
-
 
 // ################################### add reply message api ####################################
 export const addUserInquiryMessage = async (req, res) => {
@@ -646,4 +658,43 @@ export const updateUserInquiry = async (req, res) => {
     res.status(500).json({ message: 'Error updating user inquiry', error: error.message });
   }
 }
+
+// Update user password
+export const updatePassword = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate required fields
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Current password and new password are required" });
+    }
+
+    // Find user and include password field
+    const user = await User.findById(userId).select("+password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update password
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({
+      message: "Password updated successfully"
+    });
+  } catch (error) {
+    console.error("Password update error:", error);
+    res.status(500).json({ message: "Error updating password", error: error.message });
+  }
+};
 
