@@ -316,11 +316,12 @@ export const loginVendor = async (req, res) => {
 export const updateVendorProfile = async (req, res) => {
   const { vendorId } = req.params;
   
-  // const profilePicture = req.file?.path;
-    let profilePicture = req.file?.path
-    ? '/' + req.file.path.replace(/\\/g, '/').replace(/^\/+/, '')
-    : null;
-  // return console.log("profilePicture", profilePicture);
+  // Only update profile picture if a new file is uploaded
+  let profilePictureUpdate = {};
+  if (req.file) {
+    profilePictureUpdate.profilePicture = '/' + req.file.path.replace(/\\/g, '/').replace(/^\/+/, '');
+  }
+
   const {
     businessName,
     vendorType,
@@ -339,7 +340,6 @@ export const updateVendorProfile = async (req, res) => {
     media,
     paymentDetails,
     termsAccepted,
-
   } = req.body;
 
   const normalizedServiceAreas = typeof serviceAreas === "string"
@@ -370,8 +370,7 @@ export const updateVendorProfile = async (req, res) => {
         media,
         paymentDetails,
         termsAccepted,
-        profilePicture: profilePicture,
-        
+        ...profilePictureUpdate, // Only include profile picture if a new one was uploaded
       },
       { new: true }
     );
@@ -379,7 +378,7 @@ export const updateVendorProfile = async (req, res) => {
     if (!updatedVendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
-//  console.log("VENDORlIST",updatedVendor)
+
     res.status(200).json({
       message: 'Vendor profile updated successfully',
       vendor: updatedVendor,
@@ -410,7 +409,7 @@ export const deleteVendor = async (req, res) => {
 };
 
 
-// ########################### get Vendor by id ####################
+// get Vendor by id ####################
 export const getVendorById = async (req, res) => {
   const { vendorId } = req.params;
 
