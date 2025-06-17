@@ -302,7 +302,8 @@ export const loginVendor = async (req, res) => {
         role: vendor.role,
         isApproved: vendor.isApproved, // ✅ Add this line
         status: vendor.status,
-        profilePicture: vendor.profilePicture || ''
+        profilePicture: vendor.profilePicture || '',
+        serviceAreas: vendor.serviceAreas,
       },
     });
 
@@ -341,6 +342,12 @@ export const updateVendorProfile = async (req, res) => {
 
   } = req.body;
 
+  const normalizedServiceAreas = typeof serviceAreas === "string"
+    ? serviceAreas.split(",").map(area => area.trim()).filter(Boolean)
+    : Array.isArray(serviceAreas)
+      ? serviceAreas.map(area => area.trim()).filter(Boolean)
+      : [];
+
   try {
     console.log("################### Update Vendor Api Executed #################")
     const updatedVendor = await Vendor.findByIdAndUpdate(
@@ -353,7 +360,7 @@ export const updateVendorProfile = async (req, res) => {
         phone,
         address,
         isApproved,
-        serviceAreas,
+        serviceAreas: normalizedServiceAreas,
         description,
         yearsInBusiness,
         licenses,
@@ -363,7 +370,8 @@ export const updateVendorProfile = async (req, res) => {
         media,
         paymentDetails,
         termsAccepted,
-        profilePicture: profilePicture
+        profilePicture: profilePicture,
+        
       },
       { new: true }
     );
@@ -371,7 +379,7 @@ export const updateVendorProfile = async (req, res) => {
     if (!updatedVendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
- console.log("VENDORlIST",updatedVendor)
+//  console.log("VENDORlIST",updatedVendor)
     res.status(200).json({
       message: 'Vendor profile updated successfully',
       vendor: updatedVendor,
@@ -402,7 +410,7 @@ export const deleteVendor = async (req, res) => {
 };
 
 
-// ########################### get Vendor by id ####################
+// get Vendor by id
 export const getVendorById = async (req, res) => {
   const { vendorId } = req.params;
 
@@ -424,8 +432,7 @@ export const getVendorById = async (req, res) => {
   }
 };
 
-// ############################### addUserInquiry Reply by vendor ###############################
-
+//addUserInquiry Reply by vendor 
 
 export const addUserInquiryReply = async (req, res) => {
   try {

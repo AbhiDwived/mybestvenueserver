@@ -1,85 +1,129 @@
 // server/middlewares/authMiddleware.js
-import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 import Vendor from '../models/Vendor.js';
+import Admin from '../models/Admin.js';
+import AppError from '../utils/AppError.js';
+import { authErrorResponse, forbiddenResponse } from '../utils/responseHandler.js';
+import { verifyToken, isTokenBlacklisted } from '../utils/tokenManager.js';
 
-const verifyToken = (req, res) => {
-  console.log('Authorization header:', req.headers.authorization);
+const extractAndVerifyToken = (req) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return { error: 'Authorization token missing or malformed' };
+    throw new AppError('No token provided or token is malformed', 401);
   }
 
   const token = authHeader.split(' ')[1];
 
-  console.log('Token to verify:', token);
-  console.log('JWT secret:', process.env.JWT_SECRET ? 'Loaded' : 'Missing');
+  // Check if token is blacklisted
+  if (isTokenBlacklisted(token)) {
+    throw new AppError('Token has been revoked', 401);
+  }
 
+  const { decoded, error } = verifyToken(token);
+  if (error) {
+    throw new AppError(error, 401);
+  }
+
+  // Verify token type
+  if (decoded.type !== 'access') {
+    throw new AppError('Invalid token type', 401);
+  }
+
+  return decoded;
+};
+
+// User verification middleware
+export const VerifyUser = async (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Token decoded:', decoded);
-    return { decoded };
-  } catch (err) {
-    console.error('❌ Token verification error:', err.message);
-    return { error: 'Token is invalid or expired' };
+    const decoded = extractAndVerifyToken(req);
+    
+    // Verify user exists and is active
+    const user = await User.findById(decoded.id).select('+isActive');
+    if (!user || !user.isActive) {
+      return authErrorResponse(res, 'User not found or inactive');
+    }
+
+    if (decoded.role !== 'user') {
+      return forbiddenResponse(res, 'Access denied: Not a user');
+    }
+
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return authErrorResponse(res, error.message);
   }
 };
 
-// Add this for user verification
-export const VerifyUser = (req, res, next) => {
-  const { decoded, error } = verifyToken(req, res);
-  if (error) return res.status(401).json({ message: error });
+// Vendor verification middleware
+export const VerifyVendor = async (req, res, next) => {
+  try {
+    const decoded = extractAndVerifyToken(req);
+    
+    // Verify vendor exists and is active
+    const vendor = await Vendor.findById(decoded.id).select('+isActive');
+    if (!vendor || !vendor.isActive) {
+      return authErrorResponse(res, 'Vendor not found or inactive');
+    }
 
-  console.log('Decoded token:', decoded);
+    if (decoded.role !== 'vendor') {
+      return forbiddenResponse(res, 'Access denied: Not a vendor');
+    }
 
-  if (!decoded.role) {
-    console.log('Role missing in token!');
-  } else if (decoded.role !== 'user') {
-    console.log(`Role is not user, it is: ${decoded.role}`);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return authErrorResponse(res, error.message);
   }
-
-  if (decoded.role !== 'user') {
-    return res.status(403).json({ message: 'Access denied: Not a user' });
-  }
-
-  req.user = decoded;
-  next();
 };
 
-// Add this for vendor verification
-export const VerifyVendor = (req, res, next) => {
-  const { decoded, error } = verifyToken(req, res);
-  if (error) return res.status(401).json({ message: error });
-  if (decoded.role !== 'vendor') {
-    return res.status(403).json({ message: 'Access denied: Not a vendor' });
+// Admin verification middleware
+export const VerifyAdmin = async (req, res, next) => {
+  try {
+    const decoded = extractAndVerifyToken(req);
+    
+    // Verify admin exists and is active
+    const admin = await Admin.findById(decoded.id).select('+isActive');
+    if (!admin || !admin.isActive) {
+      return authErrorResponse(res, 'Admin not found or inactive');
+    }
+
+    if (decoded.role !== 'admin') {
+      return forbiddenResponse(res, 'Access denied: Not an admin');
+    }
+
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return authErrorResponse(res, error.message);
   }
-  req.user = decoded;
-  next();
 };
 
-// Add this for admin verification
-export const VerifyAdmin = (req, res, next) => {
-  const { decoded, error } = verifyToken(req, res);
-  if (error) return res.status(401).json({ message: error });
-  if (decoded.role !== 'admin') {
-    return res.status(403).json({ message: 'Access denied: Not an admin' });
-  }
-  req.user = decoded;
-  next();
-};
-
-// ✅ Check if Vendor is Approved
+// Check if Vendor is Approved
 export const CheckVendorApproval = async (req, res, next) => {
   try {
-    const vendor = await Vendor.findById(req.user.id); // ✅ Use Vendor model
+    const vendor = await Vendor.findById(req.user.id);
+    
     if (!vendor || vendor.role !== 'vendor') {
-      return res.status(403).json({ message: 'Access denied: Not a valid vendor' });
+      return forbiddenResponse(res, 'Access denied: Not a valid vendor');
     }
+    
     if (!vendor.isApproved) {
-      return res.status(403).json({ message: 'Access denied: Vendor not approved. Please contact admin.' });
+      return forbiddenResponse(res, 'Access denied: Vendor not approved. Please contact admin.');
+    }
+    
+    next();
+  } catch (error) {
+    return authErrorResponse(res, error.message);
+  }
+};
+
+// Role-based access control middleware
+export const CheckRole = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return forbiddenResponse(res, 'You do not have permission to perform this action');
     }
     next();
-  } catch (err) {
-    return res.status(500).json({ message: 'Server error during approval check' });
-  }
+  };
 };
 
