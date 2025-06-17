@@ -1,72 +1,59 @@
-import bcryptjs from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Venue from '../models/Venue.js';
 import inquirySchema from '../models/Inquiry.js';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
-import { withTransaction, sanitizeData, optimizeQuery } from '../utils/dbUtils.js';
 
 dotenv.config();
 
 // Register new user (with email OTP)
 export const register = async (req, res) => {
   try {
-    const sanitizedData = sanitizeData(req.body);
-    const { name, email, phone, password } = sanitizedData;
+    const { name, email, phone, password } = req.body;
 
     // Validate required fields
     if (!name || !email || !phone || !password) {
       return res.status(400).json({ message: "All required fields must be provided" });
     }
 
-    // Use transaction for user registration
-    const result = await withTransaction(async (session) => {
-      // Check if user already exists using optimized query
-      const userExists = await optimizeQuery(
-        User.findOne({ email }), 
-        ['_id', 'email']
-      ).session(session);
+    // Check if user already exists
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ message: "User already exists" });
+    }
 
-      if (userExists) {
-        throw new Error("User already exists");
-      }
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-      // Hash password
-      const hashedPassword = await bcryptjs.hash(password, 12);
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 mins from now
 
-      // Generate 6-digit OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const otpExpires = Date.now() + 10 * 60 * 1000; // 10 mins from now
+    // Handle profile photo
+    const profilePhoto = req.file ? `/uploads/users/${req.file.filename}` : null;
 
-      // Handle profile photo
-      const profilePhoto = req.file ? `/uploads/users/${req.file.filename}` : null;
-
-      // Create user
-      const newUser = new User({
-        name,
-        email,
-        phone,
-        password: hashedPassword,
-        otp,
-        otpExpires,
-        isVerified: false,
-        role: "user",
-        profilePhoto,
-      });
-
-      await newUser.save({ session });
-
-      // Debug logs
-      const savedUser = await optimizeQuery(
-        User.findById(newUser._id),
-        ['_id', 'email', 'otp', 'otpExpires']
-      ).session(session);
-      
-      console.log("Saved OTP:", savedUser.otp);
-
-      return { user: savedUser, otp };
+    // Create user
+    const newUser = new User({
+      name,
+      email,
+      phone,
+      password: hashedPassword,
+      otp,
+      otpExpires,
+      isVerified: false,
+      role: "user",
+      profilePhoto,
     });
+
+    await newUser.save();
+
+    // Debug logs
+    const savedUser = await User.findById(newUser._id).select(
+      "+otp +otpExpires"
+    );
+    console.log("Saved OTP:", savedUser.otp);
 
     // Send OTP email
     const transporter = nodemailer.createTransport({
@@ -81,7 +68,7 @@ export const register = async (req, res) => {
       from: process.env.EMAIL_USER,
       to: email,
       subject: "Verify your email with this OTP",
-      text: `Your OTP is ${result.otp}. It will expire in 10 minutes.`,
+      text: `Your OTP is ${otp}. It will expire in 10 minutes.`,
     };
 
     transporter.sendMail(mailOptions, (error, info) => {
@@ -93,7 +80,7 @@ export const register = async (req, res) => {
 
       res.status(201).json({
         message: "OTP sent to email. Please verify to activate your account.",
-        userId: result.user._id,
+        userId: newUser._id,
       });
     });
   } catch (error) {
@@ -111,84 +98,77 @@ export const verifyOtp = async (req, res) => {
   console.log("Received raw OTP:", otp);
 
   try {
-    const result = await withTransaction(async (session) => {
-      // Find user with optimized query
-      const user = await optimizeQuery(
-        User.findById(userId),
-        ['_id', 'email', 'otp', 'otpExpires', 'isVerified', 'name', 'phone', 'address', 'city', 'state', 'country', 'profilePhoto']
-      ).session(session);
+    // FIXED: Add .select('+otp +otpExpires') to include fields with select:false
+    const user = await User.findById(userId).select("+otp +otpExpires");
 
-      if (!user) {
-        console.log("User not found for ID:", userId);
-        throw new Error("User not found");
-      }
+    if (!user) {
+      console.log("User not found for ID:", userId);
+      return res.status(404).json({ message: "User not found" });
+    }
 
-      console.log("Found user:", {
-        id: user._id,
-        email: user.email,
-        storedOtp: user.otp,
-        otpExpires: user.otpExpires,
-        isVerified: user.isVerified,
-        now: new Date(),
-      });
-
-      // Check if already verified
-      if (user.isVerified) {
-        console.log("User is already verified.");
-        throw new Error("User already verified");
-      }
-
-      // Compare OTP and check expiration
-      const trimmedOtp = otp?.toString().trim();
-      const storedOtp = user.otp?.toString();
-
-      // Ensure both values are strings and properly compared
-      const isOtpMatch = trimmedOtp === storedOtp;
-      const isExpired = user.otpExpires < Date.now();
-
-      console.log(
-        "OTP Match?",
-        isOtpMatch
-          ? "✅ Yes"
-          : `❌ No (Expected "${storedOtp}", Got "${trimmedOtp}")`
-      );
-      console.log("OTP Expired?", isExpired ? "✅ Yes" : "❌ No");
-
-      if (!isOtpMatch || isExpired) {
-        throw new Error("Invalid or expired OTP");
-      }
-
-      // Mark user as verified
-      user.isVerified = true;
-      user.otp = undefined;
-      user.otpExpires = undefined;
-      await user.save({ session });
-
-      console.log("✅ OTP Verified Successfully. User marked as verified.");
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { id: user._id, email: user.email },
-        process.env.JWT_SECRET,
-        { expiresIn: "7D" }
-      );
-
-      return { user, token };
+    console.log("Found user:", {
+      id: user._id,
+      email: user.email,
+      storedOtp: user.otp, // Now this will have a value
+      otpExpires: user.otpExpires,
+      isVerified: user.isVerified,
+      now: new Date(),
     });
+
+    // Step 2: Check if already verified
+    if (user.isVerified) {
+      console.log("User is already verified.");
+      return res.status(400).json({ message: "User already verified" });
+    }
+
+    // Step 3: Compare OTP and check expiration
+    const trimmedOtp = otp?.toString().trim();
+    const storedOtp = user.otp?.toString();
+
+    // FIXED: Ensure both values are strings and properly compared
+    const isOtpMatch = trimmedOtp === storedOtp;
+    const isExpired = user.otpExpires < Date.now();
+
+    console.log(
+      "OTP Match?",
+      isOtpMatch
+        ? "✅ Yes"
+        : `❌ No (Expected "${storedOtp}", Got "${trimmedOtp}")`
+    );
+    console.log("OTP Expired?", isExpired ? "✅ Yes" : "❌ No");
+
+    if (!isOtpMatch || isExpired) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    // Step 4: Mark user as verified
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+
+    console.log("✅ OTP Verified Successfully. User marked as verified.");
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
     res.status(200).json({
       message: "Registration completed successfully",
-      token: result.token,
+      token,
       user: {
-        id: result.user._id,
-        name: result.user.name,
-        email: result.user.email,
-        phone: result.user.phone,
-        address: result.user.address,
-        city: result.user.city,
-        state: result.user.state,
-        country: result.user.country,
-        profilePhoto: result.user.profilePhoto,
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        country: user.country,
+        profilePhoto: user.profilePhoto,
       },
     });
 
@@ -196,8 +176,8 @@ export const verifyOtp = async (req, res) => {
   } catch (error) {
     console.error("🚨 Error verifying OTP:", error.message);
     res
-      .status(error.message.includes("not found") ? 404 : 400)
-      .json({ message: error.message });
+      .status(500)
+      .json({ message: "Error verifying OTP", error: error.message });
   }
 };
 
@@ -366,8 +346,11 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ message: "OTP missing or expired" });
     }
 
-    // Hash new password using the User model's pre-save hook
-    user.password = newPassword;
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update password and clear OTP
+    user.password = hashedPassword;
     user.otp = undefined;
     user.otpExpires = undefined;
     await user.save();
@@ -387,15 +370,14 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Find user and include password field
+    // Make sure to select the password field
     const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Verify password
-    const isMatch = await user.isPasswordMatch(password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
@@ -407,7 +389,7 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7D" }
+      { expiresIn: "1h" }
     );
 
     res.status(200).json({
@@ -695,13 +677,16 @@ export const updatePassword = async (req, res) => {
     }
 
     // Verify current password
-    const isMatch = await user.isPasswordMatch(currentPassword);
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Current password is incorrect" });
     }
 
-    // Update password using the User model's pre-save hook
-    user.password = newPassword;
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update password
+    user.password = hashedPassword;
     await user.save();
 
     res.status(200).json({

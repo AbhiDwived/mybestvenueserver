@@ -410,7 +410,7 @@ export const deleteVendor = async (req, res) => {
 };
 
 
-// get Vendor by id
+// ########################### get Vendor by id ####################
 export const getVendorById = async (req, res) => {
   const { vendorId } = req.params;
 
@@ -432,7 +432,8 @@ export const getVendorById = async (req, res) => {
   }
 };
 
-//addUserInquiry Reply by vendor 
+// ############################### addUserInquiry Reply by vendor ###############################
+
 
 export const addUserInquiryReply = async (req, res) => {
   try {
