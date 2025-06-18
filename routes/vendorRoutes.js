@@ -27,33 +27,34 @@ router.post('/register', upload.single('profilePicture'), registerVendor);
 // Verify vendor OTP
 router.post('/vendorverify-otp', verifyVendorOtp);
 
-// Resend OTP to vendor
+// Resend OTP
 router.post('/resendvendor-otp', resendVendorOtp);
 
-// Vendor login
+// Login vendor
 router.post('/login', loginVendor);
 
-// Forgot password - send OTP
+// Forgot password
 router.post('/forgot-password', vendorForgotPassword);
 
 // Verify OTP for password reset
 router.post('/forgot_password_otp', verifyVendorResetOtp);
 
-// Reset password after OTP verified
+// Reset password
 router.post('/reset_password', resetVendorPassword);
 
-// Update vendor profile (only authenticated vendors can update their profile)
+// Update vendor profile (vendor only)
 router.put('/update/:vendorId', VerifyVendor, CheckVendorApproval, upload.single('profilePicture'), updateVendorProfile);
-
 
 // Delete vendor (only admin can delete vendors for now)
 router.delete('/delete/:vendorId', VerifyAdmin, deleteVendor);
-// router.put('/updateVendor/:vendorId', VerifyAdmin, updateVendorProfile);
 
-router.post("/vendorbyId/:vendorId",VerifyVendor,getVendorById);
+// Get vendor by ID
+router.get('/vendor/:vendorId', VerifyVendor, getVendorById);
 
-router.post('/senduser_inquiryReply/:vendorId', VerifyVendor,addUserInquiryReply);
+// Handle user inquiry replies
+router.post('/inquiry-reply/:vendorId', VerifyVendor, addUserInquiryReply);
 
-router.post('/getVendorRepliedinquiryList', VerifyVendor,getVendorRepliedInquiryList);
+// Get vendor's replied inquiries
+router.get('/replied-inquiries', VerifyVendor, getVendorRepliedInquiryList);
 
 export default router;
