@@ -15,13 +15,12 @@ const blogSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      default: '', // Allow blank or any string
       required: [true, 'Category is required'],
       trim: true,
     },
-    featuredImage: {
+    image: {
       type: String,
-      required: [true, 'Featured image is required'],
+      required: [true, 'Blog image is required'],
     },
     excerpt: {
       type: String,
@@ -32,28 +31,30 @@ const blogSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Content is required'],
     },
-    // Creator can be an Admin, Vendor or User (if admins stored in User model)
-    createdBy: {
+    author: {
       type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vendor',
       required: true,
-      refPath: 'createdByModel',
-    },
-    createdByModel: {
-      type: String,
-      required: true,
-      enum: ['Admin', 'Vendor', 'User'], // Add 'User' if admins are stored in User collection
     },
     status: {
       type: String,
-      enum: ['Published', 'Draft', 'Archived'],
-      default: 'Draft',
+      enum: ['published', 'draft', 'archived'],
+      default: 'published',
     },
-    tags: {
-      type: [String],
-      default: [],
+    views: {
+      type: Number,
+      default: 0,
     },
+    tags: [{
+      type: String,
+      trim: true,
+    }],
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  }
 );
 
 // Generate slug from title before saving
@@ -63,6 +64,21 @@ blogSchema.pre('save', function (next) {
   }
   next();
 });
+
+// Virtual for formatted date
+blogSchema.virtual('formattedDate').get(function() {
+  return this.createdAt.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+});
+
+// Increment views
+blogSchema.methods.incrementViews = async function() {
+  this.views += 1;
+  return this.save();
+};
 
 const Blog = mongoose.model('Blog', blogSchema);
 

@@ -1,165 +1,229 @@
 import Blog from '../models/Blog.js';
 import Vendor from '../models/Vendor.js';
 import User from '../models/User.js';
+import { uploadToImageKit } from '../middlewares/upload.js';
 
-// Create a new blog post (admin/vendor only)
+// Create a new blog post (vendor only)
 export const createBlog = async (req, res) => {
-  console.log('👤 User from token:', req.user);
-  console.log('📩 Incoming headers:', req.headers);
+    try {
+        const { title, content, excerpt, category } = req.body;
+        const vendorId = req.user.id;
 
-  try {
-    const { title, category, excerpt, content } = req.body;
-    const image = req.file; // Get uploaded image via multer
+        // Validate image
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'Blog image is required'
+            });
+        }
 
-    // Validate required fields
-    if (!title || !category || !excerpt || !content || !image) {
-      return res.status(400).json({ message: 'All fields are required, including image' });
+        // Create blog with image
+        const blog = new Blog({
+            title,
+            content,
+            excerpt,
+            category,
+            author: vendorId,
+            image: `/uploads/blogs/${req.file.filename}`
+        });
+
+        await blog.save();
+        res.status(201).json({
+            success: true,
+            message: 'Blog created successfully',
+            blog
+        });
+    } catch (error) {
+        console.error('Blog creation error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error creating blog post',
+            error: error.message
+        });
     }
-
-    // Check role from token payload
-    if (req.user.role !== 'admin' && req.user.role !== 'vendor') {
-      return res.status(403).json({ message: 'Not authorized to create blog' });
-    }
-
-    let creator;
-
-    if (req.user.role === 'admin') {
-      creator = await User.findById(req.user.id || req.user._id);
-      if (!creator) {
-        return res.status(401).json({ message: 'Admin user not found' });
-      }
-    } else if (req.user.role === 'vendor') {
-      creator = await Vendor.findById(req.user.id || req.user._id);
-      if (!creator) {
-        return res.status(401).json({ message: 'Vendor user not found' });
-      }
-    }
-
-    // ✅ Correct image path based on upload directory
-    const featuredImage = `/uploads/vendors/${image.filename}`;
-
-    const newBlog = await Blog.create({
-      title,
-      category,
-      featuredImage,
-      excerpt,
-      content,
-      createdBy: creator._id,
-      createdByModel: req.user.role === 'admin' ? 'User' : 'Vendor',
-    });
-
-    res.status(201).json({
-      message: 'Blog post created successfully',
-      blog: newBlog,
-    });
-  } catch (error) {
-    console.error('Error creating blog:', error.message);
-    res.status(500).json({ message: 'Error creating blog post', error: error.message });
-  }
 };
 
 // Get all blogs
 export const getAllBlogs = async (req, res) => {
-  try {
-    const blogs = await Blog.find().sort({ createdAt: -1 });
-    res.status(200).json({
-      message: 'Blogs fetched successfully',
-      blogs,
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching blogs', error: error.message });
-  }
-};
+    try {
+        const blogs = await Blog.find()
+            .populate('author', 'name email businessName')
+            .sort({ createdAt: -1 });
 
-// Get a single blog by ID
-export const getBlogById = async (req, res) => {
-  try {
-    const blog = await Blog.findById(req.params.id);
-    if (!blog) {
-      return res.status(404).json({ message: 'Blog not found' });
+        res.status(200).json({
+            success: true,
+            count: blogs.length,
+            blogs
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching blogs',
+            error: error.message
+        });
     }
-    res.status(200).json({
-      message: 'Blog fetched successfully',
-      blog,
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching blog', error: error.message });
-  }
-};
-
-// Update a blog post
-export const updateBlog = async (req, res) => {
-  try {
-    const updateData = { ...req.body };
-    
-    // ✅ If a new image is uploaded, update the featuredImage path
-    if (req.file) {
-      updateData.featuredImage = `/uploads/vendors/${req.file.filename}`;
-    }
-
-    const updatedBlog = await Blog.findByIdAndUpdate(
-      req.params.id, 
-      updateData, 
-      { new: true }
-    );
-    
-    if (!updatedBlog) {
-      return res.status(404).json({ message: 'Blog not found' });
-    }
-    
-    res.status(200).json({
-      message: 'Blog updated successfully',
-      blog: updatedBlog,
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error updating blog', error: error.message });
-  }
-};
-
-// Delete a blog post
-export const deleteBlog = async (req, res) => {
-  try {
-    const deletedBlog = await Blog.findByIdAndDelete(req.params.id);
-    if (!deletedBlog) {
-      return res.status(404).json({ message: 'Blog not found' });
-    }
-    res.status(200).json({ message: 'Blog deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error deleting blog', error: error.message });
-  }
 };
 
 // Get blogs by category
 export const getBlogsByCategory = async (req, res) => {
-  try {
-    const blogs = await Blog.find({ category: req.params.name }).sort({ createdAt: -1 });
-    res.status(200).json({
-      message: 'Blogs by category fetched successfully',
-      blogs,
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching blogs by category', error: error.message });
-  }
+    try {
+        const { name } = req.params;
+        const blogs = await Blog.find({ category: name })
+            .populate('author', 'name email businessName')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: blogs.length,
+            blogs
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching blogs by category',
+            error: error.message
+        });
+    }
 };
 
-// Search blogs by keyword
+// Search blogs
 export const searchBlogs = async (req, res) => {
-  try {
-    const { keyword } = req.query;
-    const blogs = await Blog.find({
-      $or: [
-        { title: { $regex: keyword, $options: 'i' } },
-        { excerpt: { $regex: keyword, $options: 'i' } },
-        { content: { $regex: keyword, $options: 'i' } },
-        { category: { $regex: keyword, $options: 'i' } },
-      ],
-    }).sort({ createdAt: -1 });
+    try {
+        const { keyword } = req.query;
+        const searchQuery = keyword ? {
+            $or: [
+                { title: { $regex: keyword, $options: 'i' } },
+                { content: { $regex: keyword, $options: 'i' } },
+                { category: { $regex: keyword, $options: 'i' } }
+            ]
+        } : {};
 
-    res.status(200).json({
-      message: 'Search results',
-      blogs,
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error searching blogs', error: error.message });
-  }
+        const blogs = await Blog.find(searchQuery)
+            .populate('author', 'name email businessName')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: blogs.length,
+            blogs
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error searching blogs',
+            error: error.message
+        });
+    }
+};
+
+// Get a single blog post by ID
+export const getBlogById = async (req, res) => {
+    try {
+        const blog = await Blog.findById(req.params.id)
+            .populate('author', 'name email businessName');
+        
+        if (!blog) {
+            return res.status(404).json({
+                success: false,
+                message: 'Blog not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            blog
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching blog',
+            error: error.message
+        });
+    }
+};
+
+// Update a blog post (vendor only)
+export const updateBlog = async (req, res) => {
+    try {
+        const { title, content, excerpt, category } = req.body;
+        const vendorId = req.user.id;
+
+        // Check if blog exists and belongs to the vendor
+        const existingBlog = await Blog.findOne({
+            _id: req.params.id,
+            author: vendorId
+        });
+
+        if (!existingBlog) {
+            return res.status(404).json({
+                success: false,
+                message: 'Blog not found or you are not authorized to update this blog'
+            });
+        }
+
+        const updateData = {
+            title,
+            content,
+            excerpt,
+            category
+        };
+
+        // If new image is uploaded, update the image path
+        if (req.file) {
+            updateData.image = `/uploads/blogs/${req.file.filename}`;
+        }
+
+        const blog = await Blog.findByIdAndUpdate(
+            req.params.id,
+            updateData,
+            { new: true }
+        ).populate('author', 'name email businessName');
+
+        res.status(200).json({
+            success: true,
+            message: 'Blog updated successfully',
+            blog
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error updating blog',
+            error: error.message
+        });
+    }
+};
+
+// Delete a blog post (vendor/admin only)
+export const deleteBlog = async (req, res) => {
+    try {
+        const blog = await Blog.findById(req.params.id);
+        
+        if (!blog) {
+            return res.status(404).json({
+                success: false,
+                message: 'Blog not found'
+            });
+        }
+
+        // Check if user is admin or the blog author
+        if (req.user.id !== blog.author.toString() && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not authorized to delete this blog'
+            });
+        }
+        
+        await blog.deleteOne();
+        
+        res.status(200).json({
+            success: true,
+            message: 'Blog deleted successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting blog',
+            error: error.message
+        });
+    }
 };
