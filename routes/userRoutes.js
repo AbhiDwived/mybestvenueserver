@@ -19,6 +19,8 @@ import {
 
   addUserInquiryMessage,
   updatePassword,
+  submitContactForm,
+  getAllMessage,
 } from '../controllers/userController.js';
 
 import upload from "../middlewares/upload.js";
@@ -71,4 +73,9 @@ router.post('/userInquiryMessage/:userId', VerifyUser,addUserInquiryMessage);
 
 router.put('/update-password/:userId', updatePassword);
 
+//post
+router.post("/contact", submitContactForm); 
+
+//get
+router.get("/contacts", getAllMessage); 
 export default router;

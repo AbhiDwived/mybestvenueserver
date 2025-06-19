@@ -1,5 +1,6 @@
 import express from 'express';
 import upload from '../middlewares/upload.js';
+import { uploadToImageKit } from '../middlewares/imageKitUpload.js';
 import {
     createBlog,
     getAllBlogs,
@@ -23,12 +24,14 @@ router.get('/search', searchBlogs);
 router.post('/create',
     VerifyAdmin,
     upload.single('image'),
+    uploadToImageKit,
     createBlog
 );
 
 router.put('/updateblog/:id',
     VerifyAdmin,
     upload.single('image'),
+    uploadToImageKit,
     updateBlog
 );
 

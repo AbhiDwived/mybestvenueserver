@@ -1,14 +1,31 @@
 import AdminBlog from '../models/AdminBlog.js';
 import Admin from '../models/Admin.js';
+import imagekit from '../config/imagekit.js';
+
+// Helper function to extract file ID from ImageKit URL
+const getImageKitFileId = (url) => {
+    try {
+        // ImageKit URLs typically end with the file ID
+        // Example: https://ik.imagekit.io/your_account/folder/filename_fileId
+        const parts = url.split('/');
+        const filename = parts[parts.length - 1];
+        // The file ID is typically after the last underscore
+        const fileId = filename.split('_').pop();
+        return fileId;
+    } catch (error) {
+        console.error('Error extracting ImageKit file ID:', error);
+        return null;
+    }
+};
 
 // Create a new blog post
 export const createBlog = async (req, res) => {
     try {
         const { title, category, excerpt, content } = req.body;
-        const image = req.file;
+        const imageUrl = req.imageUrl; // Get ImageKit URL from middleware
 
         // Validate required fields
-        if (!title || !category || !excerpt || !content || !image) {
+        if (!title || !category || !excerpt || !content || !imageUrl) {
             return res.status(400).json({
                 success: false,
                 message: 'All fields are required, including image'
@@ -31,12 +48,10 @@ export const createBlog = async (req, res) => {
             });
         }
 
-        const featuredImage = `/uploads/admin/${image.filename}`;
-
         const newBlog = await AdminBlog.create({
             title,
             category,
-            featuredImage,
+            featuredImage: imageUrl, // Use ImageKit URL
             excerpt,
             content,
             createdBy: admin._id,
@@ -117,11 +132,6 @@ export const updateBlog = async (req, res) => {
             content
         };
 
-        // If new image is uploaded, update the image path
-        if (req.file) {
-            updateData.featuredImage = `/uploads/admin/${req.file.filename}`;
-        }
-
         const blog = await AdminBlog.findById(req.params.id);
         if (!blog) {
             return res.status(404).json({
@@ -130,12 +140,26 @@ export const updateBlog = async (req, res) => {
             });
         }
 
-        // Check if user is admin and created this blog
+        // Check if user is admin
         if (req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,
                 message: 'Access denied: Not an admin'
             });
+        }
+
+        // If new image is uploaded, delete the old image from ImageKit
+        if (req.imageUrl && blog.featuredImage) {
+            try {
+                const fileId = getImageKitFileId(blog.featuredImage);
+                if (fileId) {
+                    await imagekit.deleteFile(fileId);
+                }
+            } catch (error) {
+                console.error('Error deleting old image from ImageKit:', error);
+                // Continue with update even if old image deletion fails
+            }
+            updateData.featuredImage = req.imageUrl;
         }
 
         const updatedBlog = await AdminBlog.findByIdAndUpdate(
@@ -177,11 +201,24 @@ export const deleteBlog = async (req, res) => {
             });
         }
 
+        // Delete image from ImageKit if it exists
+        if (blog.featuredImage) {
+            try {
+                const fileId = getImageKitFileId(blog.featuredImage);
+                if (fileId) {
+                    await imagekit.deleteFile(fileId);
+                }
+            } catch (error) {
+                console.error('Error deleting image from ImageKit:', error);
+                // Continue with blog deletion even if image deletion fails
+            }
+        }
+
         await blog.deleteOne();
 
         res.status(200).json({
             success: true,
-            message: 'Blog deleted successfully'
+            message: 'Blog and associated image deleted successfully'
         });
     } catch (error) {
         res.status(500).json({

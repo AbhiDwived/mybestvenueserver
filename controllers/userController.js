@@ -5,6 +5,7 @@ import Venue from '../models/Venue.js';
 import inquirySchema from '../models/Inquiry.js';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import Contact from "../models/Contact.js";
 
 dotenv.config();
 
@@ -698,3 +699,25 @@ export const updatePassword = async (req, res) => {
   }
 };
 
+//UserContact
+//submit contact form
+export const submitContactForm = async (req, res) => {
+  const { name, email, message } = req.body;
+
+  try {
+    const newContact = new Contact({ name, email, message });
+    await newContact.save();
+    return res.status(201).send({ message: "Message sent successfully" });
+  } catch (error) {
+    return res.status(500).send({ error: "Please try again" });
+  }
+};
+
+export const getAllMessage = async (req, res) => {
+  try {
+    const message = await Contact.find().sort({ createdAt: -1 });
+    return res.status(201).send({ message: message });
+  } catch (error) {
+    return res.status(500).send({ error: "Failed to retrieve messages" });
+  }
+};
