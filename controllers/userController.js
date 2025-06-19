@@ -6,8 +6,15 @@ import inquirySchema from '../models/Inquiry.js';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import Contact from "../models/Contact.js";
+import ImageKit from 'imagekit';
 
 dotenv.config();
+
+const imagekit = new ImageKit({
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
+});
 
 // Register new user (with email OTP)
 export const register = async (req, res) => {
@@ -32,8 +39,8 @@ export const register = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 mins from now
 
-    // Handle profile photo
-    const profilePhoto = req.file ? `/uploads/users/${req.file.filename}` : null;
+    // Handle profile photo - use ImageKit URL if available
+    const profilePhoto = req.fileUrl || null;
 
     // Create user
     const newUser = new User({
@@ -430,10 +437,31 @@ export const updateProfile = async (req, res) => {
       return res.status(400).json({ message: "Email is already in use by another user" });
     }
 
-    // Handle profile photo if uploaded
-    let profilePhoto;
-    if (req.file) {
-      profilePhoto = `/uploads/users/${req.file.filename}`;
+    // Get the current user to check for existing profile photo
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Handle profile photo - use ImageKit URL if a new file was uploaded
+    let profilePhoto = currentUser.profilePhoto;
+    if (req.fileUrl) {
+      // If there's a new image uploaded to ImageKit, use its URL
+      profilePhoto = req.fileUrl;
+
+      // If there's an existing ImageKit image, you might want to delete it
+      // This would require extracting the file ID from the old URL and using imagekit.deleteFile()
+      if (currentUser.profilePhoto && currentUser.profilePhoto.includes('imagekit')) {
+        try {
+          const fileId = getImageKitFileId(currentUser.profilePhoto);
+          if (fileId) {
+            await imagekit.deleteFile(fileId);
+          }
+        } catch (error) {
+          console.error('Error deleting old image from ImageKit:', error);
+          // Continue with update even if old image deletion fails
+        }
+      }
     }
 
     // Update user
@@ -448,7 +476,7 @@ export const updateProfile = async (req, res) => {
         state,
         country,
         weddingDate: weddingDate ? new Date(weddingDate) : null,
-        ...(profilePhoto && { profilePhoto }),
+        profilePhoto,
       },
       { new: true, runValidators: true }
     ).select("-password");
@@ -479,6 +507,19 @@ export const updateProfile = async (req, res) => {
   } catch (error) {
     console.error("Profile update error:", error);
     res.status(500).json({ message: "Error updating profile", error: error.message });
+  }
+};
+
+// Helper function to extract file ID from ImageKit URL
+const getImageKitFileId = (url) => {
+  try {
+    const parts = url.split('/');
+    const filename = parts[parts.length - 1];
+    const fileId = filename.split('_').pop();
+    return fileId;
+  } catch (error) {
+    console.error('Error extracting ImageKit file ID:', error);
+    return null;
   }
 };
 

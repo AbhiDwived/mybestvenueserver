@@ -24,13 +24,19 @@ import {
 } from '../controllers/userController.js';
 
 import upload from "../middlewares/upload.js";
+import { uploadToImageKit, setImagePath } from "../middlewares/upload.js";
 import { VerifyUser } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 
-// Register route with file upload
-router.post("/register", upload.single('profilePhoto'), register);
+// Register route with ImageKit upload
+router.post("/register", 
+  upload.single('profilePhoto'),
+  setImagePath('/users'), // Set the folder path for user uploads
+  uploadToImageKit,
+  register
+);
 
 router.post('/verify-otp', verifyOtp);
 
@@ -44,11 +50,13 @@ router.post('/forgot_password', forgotPassword);
 router.post('/verify_password_reset', verifyPasswordReset);
 router.post('/reset_password', resetPassword);
 
-// Update user profile route (should accept userId as a URL parameter)
+// Update profile route with ImageKit upload
 router.put(
   "/update-profile/:userId",
   VerifyUser,
   upload.single('profilePhoto'),
+  setImagePath('/users'),
+  uploadToImageKit,
   updateProfile
 );
 

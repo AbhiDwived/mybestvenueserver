@@ -33,15 +33,12 @@ const vendorSchema = new mongoose.Schema(
     profilePicture: {
       type: String,
       default: '',
-
     },
     status: {
       type: String,
       default: 'Active',
       enum: ['Active', 'InActive'],
-
     },
-
     address: {
       street: String,
       city: String,
@@ -68,10 +65,6 @@ const vendorSchema = new mongoose.Schema(
       twitter: String,
       linkedin: String,
       others: String,
-    },
-    profilePicture: {
-      type: String,
-      default: '',
     },
     galleryImages: [
       {
@@ -107,7 +100,6 @@ const vendorSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-
     // OTP-related fields
     otp: {
       type: String,
@@ -124,6 +116,15 @@ const vendorSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Remove duplicate profilePicture field
+vendorSchema.pre('save', function(next) {
+  if (this.isModified('profilePicture') && this.profilePicture && this.profilePicture.startsWith('http')) {
+    // If the profile picture is a URL (from ImageKit), ensure it's properly formatted
+    this.profilePicture = this.profilePicture.trim();
+  }
+  next();
+});
 
 const Vendor = mongoose.model('Vendor', vendorSchema);
 export default Vendor;

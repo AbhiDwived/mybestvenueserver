@@ -1,6 +1,6 @@
 import express from 'express';
 import upload from '../middlewares/upload.js';
-
+import { uploadToImageKit } from '../middlewares/imageKitUpload.js';
 
 import {
   registerVendor,
@@ -17,12 +17,21 @@ import {
   getVendorRepliedInquiryList,
 } from '../controllers/vendorController.js';
 
-import { VerifyVendor, VerifyAdmin ,CheckVendorApproval,} from '../middlewares/authMiddleware.js';
+import { VerifyVendor, VerifyAdmin, CheckVendorApproval } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
 // Register new vendor (with OTP)
-router.post('/register', upload.single('profilePicture'), registerVendor);
+router.post('/register', 
+  upload.single('profilePicture'),
+  (req, res, next) => {
+    // Set the folder path for vendor profile pictures
+    req.imagePath = '/vendor-profiles';
+    next();
+  },
+  uploadToImageKit,
+  registerVendor
+);
 
 // Verify vendor OTP
 router.post('/vendorverify-otp', verifyVendorOtp);
@@ -43,7 +52,18 @@ router.post('/forgot_password_otp', verifyVendorResetOtp);
 router.post('/reset_password', resetVendorPassword);
 
 // Update vendor profile (vendor only)
-router.put('/update/:vendorId', VerifyVendor, CheckVendorApproval, upload.single('profilePicture'), updateVendorProfile);
+router.put('/update/:vendorId', 
+  VerifyVendor, 
+  CheckVendorApproval, 
+  upload.single('profilePicture'),
+  (req, res, next) => {
+    // Set the folder path for vendor profile pictures
+    req.imagePath = '/vendor-profiles';
+    next();
+  },
+  uploadToImageKit,
+  updateVendorProfile
+);
 
 // Delete vendor (only admin can delete vendors for now)
 router.delete('/delete/:vendorId', VerifyAdmin, deleteVendor);

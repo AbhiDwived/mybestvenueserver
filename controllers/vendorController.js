@@ -4,8 +4,22 @@ import Vendor from '../models/Vendor.js';
 import inquirySchema from '../models/Inquiry.js';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import imagekit from '../config/imagekit.js';
 
 dotenv.config();
+
+// Helper function to extract file ID from ImageKit URL
+const getImageKitFileId = (url) => {
+  try {
+    const parts = url.split('/');
+    const filename = parts[parts.length - 1];
+    const fileId = filename.split('_').pop();
+    return fileId;
+  } catch (error) {
+    console.error('Error extracting ImageKit file ID:', error);
+    return null;
+  }
+};
 
 // Register new vendor (with OTP)
 export const registerVendor = async (req, res) => {
@@ -14,7 +28,6 @@ export const registerVendor = async (req, res) => {
   try {
     // Validate required fields
     if (!businessName || !vendorType || !contactName || !email || !phone || !password) {
-      // console.log("first",)
       return res.status(400).json({ message: "All required fields must be provided" });
     }
 
@@ -31,8 +44,8 @@ export const registerVendor = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000;
 
-    // Handle profile picture
-    const profilePicture = req.file ? `/uploads/vendors/${req.file.filename}` : null;
+    // Handle profile picture - use ImageKit URL if available
+    const profilePicture = req.imageUrl || null;
 
     // Create new vendor
     const newVendor = new Vendor({
@@ -46,9 +59,7 @@ export const registerVendor = async (req, res) => {
       otpExpires,
       isVerified: false,
       termsAccepted: false,
-
       profilePicture,
-
     });
 
     await newVendor.save();
@@ -316,40 +327,59 @@ export const loginVendor = async (req, res) => {
 export const updateVendorProfile = async (req, res) => {
   const { vendorId } = req.params;
   
-  // Only update profile picture if a new file is uploaded
-  let profilePictureUpdate = {};
-  if (req.file) {
-    profilePictureUpdate.profilePicture = '/' + req.file.path.replace(/\\/g, '/').replace(/^\/+/, '');
-  }
-
-  const {
-    businessName,
-    vendorType,
-    contactName,
-    email,
-    phone,
-    address,
-    isApproved,
-    serviceAreas,
-    description,
-    yearsInBusiness,
-    licenses,
-    pricing,
-    website,
-    socialMedia,
-    media,
-    paymentDetails,
-    termsAccepted,
-  } = req.body;
-
-  const normalizedServiceAreas = typeof serviceAreas === "string"
-    ? serviceAreas.split(",").map(area => area.trim()).filter(Boolean)
-    : Array.isArray(serviceAreas)
-      ? serviceAreas.map(area => area.trim()).filter(Boolean)
-      : [];
-
   try {
-    console.log("################### Update Vendor Api Executed #################")
+    // Get the current vendor to check for existing profile picture
+    const currentVendor = await Vendor.findById(vendorId);
+    if (!currentVendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
+    }
+
+    // Handle profile picture - use ImageKit URL if a new file was uploaded
+    let profilePicture = currentVendor.profilePicture;
+    if (req.imageUrl) {
+      // If there's a new image uploaded to ImageKit, use its URL
+      profilePicture = req.imageUrl;
+
+      // If there's an existing ImageKit image, delete it
+      if (currentVendor.profilePicture && currentVendor.profilePicture.includes('imagekit')) {
+        try {
+          const fileId = getImageKitFileId(currentVendor.profilePicture);
+          if (fileId) {
+            await imagekit.deleteFile(fileId);
+          }
+        } catch (error) {
+          console.error('Error deleting old image from ImageKit:', error);
+          // Continue with update even if old image deletion fails
+        }
+      }
+    }
+
+    const {
+      businessName,
+      vendorType,
+      contactName,
+      email,
+      phone,
+      address,
+      isApproved,
+      serviceAreas,
+      description,
+      yearsInBusiness,
+      licenses,
+      pricing,
+      website,
+      socialMedia,
+      media,
+      paymentDetails,
+      termsAccepted,
+    } = req.body;
+
+    const normalizedServiceAreas = typeof serviceAreas === "string"
+      ? serviceAreas.split(",").map(area => area.trim()).filter(Boolean)
+      : Array.isArray(serviceAreas)
+        ? serviceAreas.map(area => area.trim()).filter(Boolean)
+        : [];
+
     const updatedVendor = await Vendor.findByIdAndUpdate(
       vendorId,
       {
@@ -370,14 +400,10 @@ export const updateVendorProfile = async (req, res) => {
         media,
         paymentDetails,
         termsAccepted,
-        ...profilePictureUpdate, // Only include profile picture if a new one was uploaded
+        profilePicture,
       },
       { new: true }
     );
-
-    if (!updatedVendor) {
-      return res.status(404).json({ message: 'Vendor not found' });
-    }
 
     res.status(200).json({
       message: 'Vendor profile updated successfully',
@@ -385,7 +411,7 @@ export const updateVendorProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.log("error", error)
+    console.log("error", error);
     res.status(500).json({ message: 'Error updating vendor', error: error.message });
   }
 };
