@@ -525,8 +525,12 @@ export const addUserInquiryReply = async (req, res) => {
 // Get Vendorreplied Inquiry List
 export const getVendorRepliedInquiryList = async (req, res) => {
   try {
-  
-    const { vendorId } = req.body;
+    // Get vendorId from authenticated user
+    const vendorId = req.user.id;
+
+    if (!vendorId) {
+      return res.status(401).json({ message: 'Unauthorized: Vendor ID not found' });
+    }
 
     const userInquiryList = await inquirySchema.find({ vendorId })
       .sort({ createdAt: -1 })
@@ -537,8 +541,10 @@ export const getVendorRepliedInquiryList = async (req, res) => {
       name: inquiry.userId?.name || null,
       userId: inquiry.userId?._id || null
     }));
+    
     res.status(200).json({ message: 'Vendor reply list fetched successfully', modifiedList });
   } catch (error) {
+    console.error('Error in getVendorRepliedInquiryList:', error);
     res.status(500).json({ message: 'Error fetching user inquiry list', error: error.message });
   }
 };

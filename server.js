@@ -13,6 +13,11 @@ import categoryRoutes from './routes/categoryRoutes.js';
 import activityRoutes from './routes/activityRoutes.js';
 import blogRoutes from './routes/blogRoutes.js';
 import adminBlogRoutes from './routes/adminBlogRoutes.js';
+import budgetRoutes from './routes/budgetRoutes.js';
+import bookingRoutes from './routes/bookingRoutes.js';
+import checklistRoutes from './routes/checklistRoutes.js';
+import savedVendorRoutes from './routes/savedVendorRoutes.js';
+import guestRoutes from './routes/guestRoutes.js';
 
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -45,7 +50,7 @@ app.use(
       }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     exposedHeaders: ['Set-Cookie']
   })
@@ -68,6 +73,11 @@ app.use('/api/v1/category', categoryRoutes);
 app.use('/api/v1/activity', activityRoutes);
 app.use('/api/v1/blog', blogRoutes); 
 app.use('/api/v1/admin/blog', adminBlogRoutes); 
+app.use('/api/v1/budget', budgetRoutes);
+app.use('/api/v1/booking', bookingRoutes);
+app.use('/api/v1/checklist', checklistRoutes);
+app.use('/api/v1/saved-vendors', savedVendorRoutes);
+app.use('/api/v1/guest', guestRoutes);
 
 
 // Error Handling Middleware (should be last)
