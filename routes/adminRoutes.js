@@ -28,7 +28,7 @@ router.post('/resend_admin_otp', resendAdminOtp);
 
 router.put('/update/:adminId', VerifyAdmin, updateAdminProfile);
 
-router.get('/all_vendors', VerifyAdmin, getAllVendors);
+router.get('/all_vendors', getAllVendors);
 router.get('/pending_vendor', VerifyAdmin, getPendingVendors);
 router.put('/approve/:vendorId', VerifyAdmin, approveVendor);
 router.delete('/delete-vendor/:vendorId', VerifyAdmin, deleteVendorByAdmin);

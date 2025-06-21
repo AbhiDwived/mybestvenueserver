@@ -22,6 +22,7 @@ import {
   deleteServicePackages,
   addFaq,
   getVendorsFaqs,
+  updateVendorPricingRange,
 } from '../controllers/vendorController.js';
 
 import { VerifyVendor, VerifyAdmin, CheckVendorApproval } from '../middlewares/authMiddleware.js';
@@ -96,5 +97,7 @@ router.delete('/updateservicesPackage/:packageId', VerifyVendor,deleteServicePac
 router.post("/addfaq",VerifyVendor,addFaq);
 router.get("/getfaqsbyVendor/:vendorId",VerifyVendor,getVendorsFaqs);
 
+// Update vendor pricing range
+router.put('/pricing-range/:vendorId', VerifyVendor, updateVendorPricingRange);
 
 export default router;

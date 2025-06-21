@@ -271,19 +271,32 @@ export const getPendingVendors = async (req, res) => {
 
 export const getAllVendors = async (req, res) => {
   try {
-    // Include profilePicture in the selection
-    const vendors = await Vendor.find().select("businessName vendorType contactName email phone createdAt isApproved profilePicture");
+    // Include all necessary fields for the FeatureVendors component
+    const vendors = await Vendor.find({ isApproved: true });
 
     const formattedVendors = vendors.map((vendor) => ({
       _id: vendor._id,
-      name: vendor.businessName,
+      businessName: vendor.businessName,
+      vendorType: vendor.vendorType,
       email: vendor.email,
       phone: vendor.phone,
+      address: vendor.address || {},
+      serviceAreas: vendor.serviceAreas || [],
+      pricingRange: {
+        min: vendor.pricingRange?.min || 0,
+        max: vendor.pricingRange?.max || 0,
+        currency: vendor.pricingRange?.currency || 'INR'
+      },
+      profilePicture: vendor.profilePicture,
+      galleryImages: vendor.galleryImages || [],
       isApproved: vendor.isApproved,
       appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
-      category: vendor.vendorType,
-      profilePicture: vendor.profilePicture || null, // ✅ Include profile picture
     }));
+
+    // Let's log a vendor's pricing range to debug
+    if (vendors.length > 0) {
+      console.log('Sample vendor pricing range:', vendors[0].pricingRange);
+    }
 
     res.status(200).json({
       message: "Vendors fetched successfully",
@@ -293,8 +306,6 @@ export const getAllVendors = async (req, res) => {
     res.status(500).json({ message: "Error fetching vendors", error: error.message });
   }
 };
-
-
 
 export const deleteVendorByAdmin = async (req, res) => {
   const { vendorId } = req.params;

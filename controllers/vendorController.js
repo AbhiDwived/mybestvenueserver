@@ -368,11 +368,12 @@ export const updateVendorProfile = async (req, res) => {
       description,
       yearsInBusiness,
       licenses,
-      pricing,
-      website,
-      socialMedia,
-      media,
-      paymentDetails,
+      pricingRange,
+      websiteURL,
+      socialMediaLinks,
+      galleryImages,
+      paymentMethods,
+      depositInfo,
       termsAccepted,
     } = req.body;
 
@@ -381,6 +382,13 @@ export const updateVendorProfile = async (req, res) => {
       : Array.isArray(serviceAreas)
         ? serviceAreas.map(area => area.trim()).filter(Boolean)
         : [];
+
+    // Ensure pricingRange has the correct structure
+    const formattedPricingRange = pricingRange ? {
+      min: Number(pricingRange.min) || 0,
+      max: Number(pricingRange.max) || 0,
+      currency: pricingRange.currency || 'INR'
+    } : currentVendor.pricingRange;
 
     const updatedVendor = await Vendor.findByIdAndUpdate(
       vendorId,
@@ -396,11 +404,12 @@ export const updateVendorProfile = async (req, res) => {
         description,
         yearsInBusiness,
         licenses,
-        pricing,
-        website,
-        socialMedia,
-        media,
-        paymentDetails,
+        pricingRange: formattedPricingRange,
+        websiteURL,
+        socialMediaLinks,
+        galleryImages,
+        paymentMethods,
+        depositInfo,
         termsAccepted,
         profilePicture,
       },
@@ -672,5 +681,40 @@ export const getVendorsFaqs = async (req, res) => {
     res.status(500).json({ message: 'Error fetching faqs', error: error.message });
   }
 }
+
+// Update Vendor Pricing Range
+export const updateVendorPricingRange = async (req, res) => {
+  const { vendorId } = req.params;
+  const { min, max, currency = 'INR' } = req.body;
+
+  try {
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
+    }
+
+    // Update pricing range
+    vendor.pricingRange = {
+      min: Number(min),
+      max: Number(max),
+      currency
+    };
+
+    await vendor.save();
+
+    res.status(200).json({
+      message: 'Pricing range updated successfully',
+      vendor: {
+        _id: vendor._id,
+        businessName: vendor.businessName,
+        pricingRange: vendor.pricingRange
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating pricing range:', error);
+    res.status(500).json({ message: 'Error updating pricing range', error: error.message });
+  }
+};
 
 
