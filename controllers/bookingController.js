@@ -291,7 +291,60 @@ export const getAvailableVendors = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error',
-      error: error.message,
+      error: error.message, 
     });
   }
 }; 
+
+
+
+
+// Vendor  booking List 
+export const getVendorBookings = async (req, res) => {
+  console.log(" start section ")
+  try {
+   const vendorId = req.params.vendorId;
+
+
+    
+    const bookings = await Booking.find({ vendor: vendorId })
+       .populate('user', 'name businessName email phone profilePhoto')
+      .sort({ createdAt: -1 });
+
+      if(!bookings){
+        res.status(200).send({msg:"No Booking Found "})
+      }
+
+
+    const totalPlanned = bookings.reduce((sum, b) => sum + (b.plannedAmount || 0), 0);
+    const totalSpent = bookings.reduce((sum, b) => sum + (b.spentAmount || 0), 0);
+    
+    
+    const statusCounts = bookings.reduce((counts, booking) => {
+      const status = booking.status?.toLowerCase(); 
+      counts[status] = (counts[status] || 0) + 1;
+      return counts;
+    }, {});
+
+    res.status(200).json({
+      success: true,
+      data: {
+        bookings,
+        totalPlanned,
+        totalSpent,
+        totalBookingsCount: bookings.length,
+        completedBookingsCount: statusCounts['completed'] || 0,
+        pendingBookingsCount: statusCounts['pending'] || 0,
+        confirmedBookingsCount: statusCounts['confirmed'] || 0,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching bookings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+

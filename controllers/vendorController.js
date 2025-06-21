@@ -5,6 +5,8 @@ import inquirySchema from '../models/Inquiry.js';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import imagekit from '../config/imagekit.js';
+import Package from '../models/Package.js';
+import FAQ from '../models/Faq.js';
 
 dotenv.config();
 
@@ -549,5 +551,126 @@ export const getVendorRepliedInquiryList = async (req, res) => {
   }
 };
 
+
+//  Add Services Package 
+export const addServicesPackage = async(req,res,next) =>{
+  try{
+    console.log(" ##############addServicesPackageApi Executed #################");
+    // const { vendorId } = req.params;
+    const {vendorId, packageName,description,price,offerPrice, services} = req.body;  
+    const vendor = await Vendor.findOne({ _id: vendorId });
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
+    }
+    const newPackage = new Package({
+      vendorId,
+      packageName,
+      services,
+      price,
+      offerPrice,
+      description,
+    });
+     const result =await newPackage.save();
+    console.log('Package added successfully',result);
+    res.status(200).json({ message: 'Package added successfully',result });
+   
+  }catch(error){
+    console.log('Error adding package',error);
+    res.status(500).json({ message: 'Error adding package', error: error.message });
+
+  }
+}
+
+// get all Services Packages
+export const getAllServicesPackages = async (req, res) => {
+  console.log(" ##############getAllServicesPackagesApi Executed #################");
+  try {
+    const packages = await Package.find({valid:true}).sort({ createdAt: -1 });
+    res.status(200).json({ message: 'Packages fetched successfully', packages });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching packages', error: error.message });
+  }
+  
+}
+// get all Services Packages
+export const getVendorServicesPackages = async (req, res) => {
+  console.log(" ##############getVendorServicesPackagesApi Executed #################");
+  try {
+    const { vendorId } = req.params;
+    const packages = await Package.find({vendorId}).sort({ createdAt: -1 });
+    res.status(200).json({ message: 'Packages fetched successfully', packages });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching packages', error: error.message });
+  }
+  
+}
+
+//Update Services Package
+export const updateServicePackages = async(req,res,nexxt)=>{
+  console.log("################## updateServicePackagesApi Executed #################");
+  try{
+    const {packageId} = req.params;
+    const {vendorId, packageName,description,price,offerPrice, services} = req.body;  
+    const vendor = await Package.findOne({ _id: packageId });
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
+    }
+    const result =await Package.findOneAndUpdate(
+      {_id:packageId},
+      {vendorId, packageName,description,price,offerPrice, services},
+      {new:true});
+    console.log('Package updated successfully',result);
+    res.status(200).json({ message: 'Package updated successfully',result });
+}catch(error){
+  console.log('Error updating package',error);
+  res.status(500).json({ message: 'Error updating package', error: error.message });
+}
+}
+
+// Delete Services Package
+export const deleteServicePackages = async(req,res,nexxt)=>{
+  console.log("################## deleteServicePackagesApi Executed #################");
+  try{
+    const {packageId} = req.params;
+    const result =await Package.findByIdAndDelete(
+      {_id:packageId},
+      );
+    console.log('Package deleted successfully',result);
+    res.status(200).json({ message: 'Package deleted successfully',result });
+}catch(error){
+  console.log('Error deleting package',error);
+  res.status(500).json({ message: 'Error deleting package', error: error.message });
+}
+}
+
+// Add Faqs
+export const addFaq = async(req,res,nexxt)=>{
+  console.log("################## addFaqApi Executed #################");
+  try{
+    const {vendorId, question, answer} = req.body;  
+    const result = await FAQ.create({
+      vendorId,
+      question,
+      answer,
+    });
+    console.log('Faq added successfully',result);
+    res.status(200).json({ message: 'Faq added successfully',result });
+}catch(error){
+  console.log('Error adding faq',error);
+  res.status(500).json({ message: 'Error adding faq', error: error.message });
+}
+}
+
+// getFaqs by getVendorsFaqs
+export const getVendorsFaqs = async (req, res) => {
+  console.log(" ##############getVendorsFaqsApi Executed #################");
+  try {
+    const { vendorId } = req.params;
+    const faqs = await FAQ.find({vendorId}).sort({ createdAt: -1 });
+    res.status(200).json({ message: 'Faqs fetched successfully', faqs });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching faqs', error: error.message });
+  }
+}
 
 

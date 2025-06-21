@@ -15,6 +15,13 @@ import {
   getVendorById,
   addUserInquiryReply,
   getVendorRepliedInquiryList,
+  addServicesPackage,
+  getAllServicesPackages,
+  getVendorServicesPackages,
+  updateServicePackages,
+  deleteServicePackages,
+  addFaq,
+  getVendorsFaqs,
 } from '../controllers/vendorController.js';
 
 import { VerifyVendor, VerifyAdmin, CheckVendorApproval } from '../middlewares/authMiddleware.js';
@@ -76,5 +83,18 @@ router.post('/inquiry-reply/:vendorId', VerifyVendor, addUserInquiryReply);
 
 // Get vendor's replied inquiries
 router.get('/replied-inquiries', VerifyVendor, getVendorRepliedInquiryList);
+
+
+// Packages routes
+router.post('/addservicesPackage', VerifyVendor,addServicesPackage);
+router.get('/allservicesPackageList', VerifyVendor,getAllServicesPackages);
+router.get('/vendorservicesPackageList/:vendorId', VerifyVendor,getVendorServicesPackages);
+router.put('/updateservicesPackage/:packageId', VerifyVendor,updateServicePackages);
+router.delete('/updateservicesPackage/:packageId', VerifyVendor,deleteServicePackages);
+
+// Faqs routes
+router.post("/addfaq",VerifyVendor,addFaq);
+router.get("/getfaqsbyVendor/:vendorId",VerifyVendor,getVendorsFaqs);
+
 
 export default router;

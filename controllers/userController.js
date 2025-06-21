@@ -1,12 +1,12 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
-import Venue from '../models/Venue.js';
-import inquirySchema from '../models/Inquiry.js';
-import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import User from "../models/User.js";
+import Venue from "../models/Venue.js";
+import inquirySchema from "../models/Inquiry.js";
+import nodemailer from "nodemailer";
+import dotenv from "dotenv";
 import Contact from "../models/Contact.js";
-import ImageKit from 'imagekit';
+import ImageKit from "imagekit";
 
 dotenv.config();
 
@@ -23,7 +23,9 @@ export const register = async (req, res) => {
 
     // Validate required fields
     if (!name || !email || !phone || !password) {
-      return res.status(400).json({ message: "All required fields must be provided" });
+      return res
+        .status(400)
+        .json({ message: "All required fields must be provided" });
     }
 
     // Check if user already exists
@@ -420,21 +422,59 @@ export const login = async (req, res) => {
   }
 };
 
+//getUserProfile
+export const getUserProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select(
+      "name email weddingDate city state address"
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Format location from available fields
+    const location =
+      user.city || user.state || user.address || "Location not set";
+
+    // Format wedding date
+    const weddingDate = user.weddingDate
+      ? new Date(user.weddingDate).toISOString().split("T")[0]
+      : "No wedding date set";
+
+    res.status(200).json({
+      userId: user._id,
+      name: user.name,
+      email: user.email,
+      weddingDate,
+      location,
+    });
+  } catch (error) {
+    console.error("Get Profile Error:", error);
+    res.status(500).json({ message: "Failed to get profile" });
+  }
+};
+
 // Update user profile
 export const updateProfile = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { name, email, phone, address, city, state, country, weddingDate } = req.body;
+    const { name, email, phone, address, city, state, country, weddingDate } =
+      req.body;
 
     // Validate required fields
     if (!name || !email || !phone) {
-      return res.status(400).json({ message: "Name, email and phone are required" });
+      return res
+        .status(400)
+        .json({ message: "Name, email and phone are required" });
     }
 
     // Check if email is being changed and if it's already in use
     const existingUser = await User.findOne({ email });
     if (existingUser && existingUser._id.toString() !== userId) {
-      return res.status(400).json({ message: "Email is already in use by another user" });
+      return res
+        .status(400)
+        .json({ message: "Email is already in use by another user" });
     }
 
     // Get the current user to check for existing profile photo
@@ -451,14 +491,17 @@ export const updateProfile = async (req, res) => {
 
       // If there's an existing ImageKit image, you might want to delete it
       // This would require extracting the file ID from the old URL and using imagekit.deleteFile()
-      if (currentUser.profilePhoto && currentUser.profilePhoto.includes('imagekit')) {
+      if (
+        currentUser.profilePhoto &&
+        currentUser.profilePhoto.includes("imagekit")
+      ) {
         try {
           const fileId = getImageKitFileId(currentUser.profilePhoto);
           if (fileId) {
             await imagekit.deleteFile(fileId);
           }
         } catch (error) {
-          console.error('Error deleting old image from ImageKit:', error);
+          console.error("Error deleting old image from ImageKit:", error);
           // Continue with update even if old image deletion fails
         }
       }
@@ -497,28 +540,30 @@ export const updateProfile = async (req, res) => {
       country: updatedUser.country,
       profilePhoto: updatedUser.profilePhoto,
       weddingDate: updatedUser.weddingDate,
-      role: updatedUser.role
+      role: updatedUser.role,
     };
 
     res.status(200).json({
       message: "Profile updated successfully",
-      user: formattedUser
+      user: formattedUser,
     });
   } catch (error) {
     console.error("Profile update error:", error);
-    res.status(500).json({ message: "Error updating profile", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error updating profile", error: error.message });
   }
 };
 
 // Helper function to extract file ID from ImageKit URL
 const getImageKitFileId = (url) => {
   try {
-    const parts = url.split('/');
+    const parts = url.split("/");
     const filename = parts[parts.length - 1];
-    const fileId = filename.split('_').pop();
+    const fileId = filename.split("_").pop();
     return fileId;
   } catch (error) {
-    console.error('Error extracting ImageKit file ID:', error);
+    console.error("Error extracting ImageKit file ID:", error);
     return null;
   }
 };
@@ -531,14 +576,16 @@ export const deleteUser = async (req, res) => {
     // Find and delete the user
     const deletedUser = await User.findByIdAndDelete(userId);
     if (!deletedUser) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.status(200).json({
-      message: 'User deleted successfully',
+      message: "User deleted successfully",
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting user', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error deleting user", error: error.message });
   }
 };
 
@@ -546,10 +593,12 @@ export const deleteUser = async (req, res) => {
 export const logout = async (req, res) => {
   try {
     res.status(200).json({
-      message: 'Logout successful. Please clear token on frontend.',
+      message: "Logout successful. Please clear token on frontend.",
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error logging out', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error logging out", error: error.message });
   }
 };
 
@@ -561,20 +610,24 @@ export const addToWishlist = async (req, res) => {
   try {
     const venue = await Venue.findById(venueId);
     if (!venue || !venue.isApproved) {
-      return res.status(404).json({ message: 'Venue not found or not approved' });
+      return res
+        .status(404)
+        .json({ message: "Venue not found or not approved" });
     }
 
     const user = await User.findById(userId);
     if (user.wishlist.includes(venueId)) {
-      return res.status(400).json({ message: 'Venue already in wishlist' });
+      return res.status(400).json({ message: "Venue already in wishlist" });
     }
 
     user.wishlist.push(venueId);
     await user.save();
 
-    res.status(200).json({ message: 'Venue added to wishlist' });
+    res.status(200).json({ message: "Venue added to wishlist" });
   } catch (error) {
-    res.status(500).json({ message: 'Error adding to wishlist', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error adding to wishlist", error: error.message });
   }
 };
 
@@ -588,9 +641,11 @@ export const removeFromWishlist = async (req, res) => {
       $pull: { wishlist: venueId },
     });
 
-    res.status(200).json({ message: 'Venue removed from wishlist' });
+    res.status(200).json({ message: "Venue removed from wishlist" });
   } catch (error) {
-    res.status(500).json({ message: 'Error removing from wishlist', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error removing from wishlist", error: error.message });
   }
 };
 
@@ -600,21 +655,21 @@ export const getWishlist = async (req, res) => {
 
   try {
     const user = await User.findById(userId).populate({
-      path: 'wishlist',
-      populate: { path: 'category', select: 'name' },
+      path: "wishlist",
+      populate: { path: "category", select: "name" },
     });
 
     res.status(200).json({ wishlist: user.wishlist });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching wishlist', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error fetching wishlist", error: error.message });
   }
 };
 
 // ################################### add reply message api ####################################
 export const addUserInquiryMessage = async (req, res) => {
   try {
-   
-
     const { userId } = req.params;
     const { message, vendorId } = req.body;
 
@@ -629,7 +684,6 @@ export const addUserInquiryMessage = async (req, res) => {
 
     const messageEntry = {
       message: message,
-
     };
 
     if (inquiry) {
@@ -643,20 +697,18 @@ export const addUserInquiryMessage = async (req, res) => {
         // email: userCheck.email,
         userId,
         vendorId,
-        userMessage: [messageEntry]
+        userMessage: [messageEntry],
       });
     }
 
     res.status(200).json({
-      message: 'User inquiry saved successfully',
-      result: inquiry
+      message: "User inquiry saved successfully",
+      result: inquiry,
     });
-
   } catch (error) {
-    
     res.status(500).json({
-      message: 'Error saving user inquiry',
-      error: error.message
+      message: "Error saving user inquiry",
+      error: error.message,
     });
   }
 };
@@ -665,41 +717,52 @@ export const addUserInquiryMessage = async (req, res) => {
 
 export const getUserInquiryList = async (req, res) => {
   try {
-    
     const { userId } = req.body;
     // const userInquiryList = await userInquiry.find({email:email}).sort({ createdAt: -1 });
-    const userInquiryList = await inquirySchema.find({ userId })
+    const userInquiryList = await inquirySchema
+      .find({ userId })
       .sort({ createdAt: -1 })
-      .populate('vendorId', 'businessName');
+      .populate("vendorId", "businessName");
 
     const modifiedList = userInquiryList.map((inquiry) => ({
       ...inquiry.toObject(),
       business: inquiry.vendorId?.businessName || null,
-      vendorId: inquiry.vendorId?._id || null
+      vendorId: inquiry.vendorId?._id || null,
     }));
-    res.status(200).json({ message: 'User inquiry list fetched successfully', modifiedList });
+    res.status(200).json({
+      message: "User inquiry list fetched successfully",
+      modifiedList,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching user inquiry list', error: error.message });
+    res.status(500).json({
+      message: "Error fetching user inquiry list",
+      error: error.message,
+    });
   }
-}
+};
 // ###################################  Update userinquiry api ####################################
 
 export const updateUserInquiry = async (req, res) => {
   try {
-    
     const { inquiryId } = req.params;
-    if (!inquiryId) return res.status(404).json({ message: "Inquiry not found" });
+    if (!inquiryId)
+      return res.status(404).json({ message: "Inquiry not found" });
     const { userId, weddingDate, message } = req.body;
     const updatedUserInquiry = await inquirySchema.findByIdAndUpdate(
       inquiryId,
       { userId, weddingDate, message },
       { new: true }
     );
-    res.status(200).json({ message: 'User inquiry updated successfully', updatedUserInquiry });
+    res.status(200).json({
+      message: "User inquiry updated successfully",
+      updatedUserInquiry,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error updating user inquiry', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error updating user inquiry", error: error.message });
   }
-}
+};
 
 // Update user password
 export const updatePassword = async (req, res) => {
@@ -709,7 +772,9 @@ export const updatePassword = async (req, res) => {
 
     // Validate required fields
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: "Current password and new password are required" });
+      return res
+        .status(400)
+        .json({ message: "Current password and new password are required" });
     }
 
     // Find user and include password field
@@ -732,11 +797,13 @@ export const updatePassword = async (req, res) => {
     await user.save();
 
     res.status(200).json({
-      message: "Password updated successfully"
+      message: "Password updated successfully",
     });
   } catch (error) {
     console.error("Password update error:", error);
-    res.status(500).json({ message: "Error updating password", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error updating password", error: error.message });
   }
 };
 
