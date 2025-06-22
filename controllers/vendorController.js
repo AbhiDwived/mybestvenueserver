@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import imagekit from '../config/imagekit.js';
 import Package from '../models/Package.js';
 import FAQ from '../models/Faq.js';
+import { logUserLogin, logVendorProfileUpdate, logPackageUpdate } from '../utils/activityLogger.js';
 
 dotenv.config();
 
@@ -286,9 +287,7 @@ export const loginVendor = async (req, res) => {
     const vendor = await Vendor.findOne({ email }).select('+password');
     if (vendor) {
       const status = await Vendor.findOneAndUpdate({ email: vendor.email }, { status: "Active" }, { new: true });
-      // console.log("Status",status)
     }
-
 
     if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
 
@@ -302,6 +301,14 @@ export const loginVendor = async (req, res) => {
       { expiresIn: '8h' }
     );
 
+    // Log the login activity
+    await logUserLogin({
+      _id: vendor._id,
+      name: vendor.businessName,
+      role: 'vendor',
+      email: vendor.email
+    }, req);
+
     res.status(200).json({
       message: 'Login successful',
       token,
@@ -313,7 +320,7 @@ export const loginVendor = async (req, res) => {
         email: vendor.email,
         phone: vendor.phone,
         role: vendor.role,
-        isApproved: vendor.isApproved, // ✅ Add this line
+        isApproved: vendor.isApproved,
         status: vendor.status,
         profilePicture: vendor.profilePicture || '',
         serviceAreas: vendor.serviceAreas,
@@ -327,103 +334,37 @@ export const loginVendor = async (req, res) => {
 
 // Update vendor profile
 export const updateVendorProfile = async (req, res) => {
-  const { vendorId } = req.params;
-  
   try {
-    // Get the current vendor to check for existing profile picture
-    const currentVendor = await Vendor.findById(vendorId);
-    if (!currentVendor) {
+    const vendorId = req.params.id;
+    const updateData = req.body;
+
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
 
-    // Handle profile picture - use ImageKit URL if a new file was uploaded
-    let profilePicture = currentVendor.profilePicture;
-    if (req.imageUrl) {
-      // If there's a new image uploaded to ImageKit, use its URL
-      profilePicture = req.imageUrl;
-
-      // If there's an existing ImageKit image, delete it
-      if (currentVendor.profilePicture && currentVendor.profilePicture.includes('imagekit')) {
-        try {
-          const fileId = getImageKitFileId(currentVendor.profilePicture);
-          if (fileId) {
-            await imagekit.deleteFile(fileId);
-          }
-        } catch (error) {
-          console.error('Error deleting old image from ImageKit:', error);
-          // Continue with update even if old image deletion fails
-        }
-      }
-    }
-
-    const {
-      businessName,
-      vendorType,
-      contactName,
-      email,
-      phone,
-      address,
-      isApproved,
-      serviceAreas,
-      description,
-      yearsInBusiness,
-      licenses,
-      pricingRange,
-      websiteURL,
-      socialMediaLinks,
-      galleryImages,
-      paymentMethods,
-      depositInfo,
-      termsAccepted,
-    } = req.body;
-
-    const normalizedServiceAreas = typeof serviceAreas === "string"
-      ? serviceAreas.split(",").map(area => area.trim()).filter(Boolean)
-      : Array.isArray(serviceAreas)
-        ? serviceAreas.map(area => area.trim()).filter(Boolean)
-        : [];
-
-    // Ensure pricingRange has the correct structure
-    const formattedPricingRange = pricingRange ? {
-      min: Number(pricingRange.min) || 0,
-      max: Number(pricingRange.max) || 0,
-      currency: pricingRange.currency || 'INR'
-    } : currentVendor.pricingRange;
-
+    // Update the vendor profile
     const updatedVendor = await Vendor.findByIdAndUpdate(
       vendorId,
-      {
-        businessName,
-        vendorType,
-        contactName,
-        email,
-        phone,
-        address,
-        isApproved,
-        serviceAreas: normalizedServiceAreas,
-        description,
-        yearsInBusiness,
-        licenses,
-        pricingRange: formattedPricingRange,
-        websiteURL,
-        socialMediaLinks,
-        galleryImages,
-        paymentMethods,
-        depositInfo,
-        termsAccepted,
-        profilePicture,
-      },
+      { $set: updateData },
       { new: true }
     );
 
-    res.status(200).json({
-      message: 'Vendor profile updated successfully',
-      vendor: updatedVendor,
-    });
+    // Log the activity
+    await logVendorProfileUpdate(vendor, updateData, req);
 
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      vendor: updatedVendor
+    });
   } catch (error) {
-    console.log("error", error);
-    res.status(500).json({ message: 'Error updating vendor', error: error.message });
+    console.error('Error updating vendor profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update profile',
+      error: error.message
+    });
   }
 };
 
@@ -714,6 +655,56 @@ export const updateVendorPricingRange = async (req, res) => {
   } catch (error) {
     console.error('Error updating pricing range:', error);
     res.status(500).json({ message: 'Error updating pricing range', error: error.message });
+  }
+};
+
+// Update vendor package
+export const updateVendorPackage = async (req, res) => {
+  try {
+    const vendorId = req.params.id;
+    const { packageId } = req.params;
+    const packageData = req.body;
+
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
+    }
+
+    let action = packageId ? 'updated' : 'added';
+    let updatedPackage;
+
+    if (packageId) {
+      // Update existing package
+      updatedPackage = await Package.findByIdAndUpdate(
+        packageId,
+        { $set: packageData },
+        { new: true }
+      );
+    } else {
+      // Create new package
+      const newPackage = new Package({
+        ...packageData,
+        vendor: vendorId
+      });
+      updatedPackage = await newPackage.save();
+      action = 'added';
+    }
+
+    // Log the activity
+    await logPackageUpdate(vendor, action, updatedPackage, req);
+
+    res.status(200).json({
+      success: true,
+      message: `Package ${action} successfully`,
+      package: updatedPackage
+    });
+  } catch (error) {
+    console.error('Error updating vendor package:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update package',
+      error: error.message
+    });
   }
 };
 

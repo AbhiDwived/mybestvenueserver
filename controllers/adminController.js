@@ -5,6 +5,7 @@ import nodemailer from 'nodemailer';
 import User from '../models/User.js';
 import Admin from '../models/Admin.js';
 import Vendor from '../models/Vendor.js';
+import { logUserLogin } from '../utils/activityLogger.js';
 
 // Register Admin
 export const registerAdmin = async (req, res) => {
@@ -169,6 +170,14 @@ export const loginAdmin = async (req, res) => {
       { expiresIn: '7D' }
     );
 
+    // Log the login activity
+    await logUserLogin({
+      _id: admin._id,
+      name: admin.name,
+      role: 'admin',
+      email: admin.email
+    }, req);
+
     res.status(200).json({
       message: 'Login successful',
       token,
@@ -271,8 +280,20 @@ export const getPendingVendors = async (req, res) => {
 
 export const getAllVendors = async (req, res) => {
   try {
-    // Include all necessary fields for the FeatureVendors component
     const vendors = await Vendor.find({ isApproved: true });
+
+    // Get unique locations from both serviceAreas and addresses
+    const uniqueLocations = new Set();
+    vendors.forEach(vendor => {
+      // Add service areas
+      if (vendor.serviceAreas && Array.isArray(vendor.serviceAreas)) {
+        vendor.serviceAreas.forEach(area => uniqueLocations.add(area));
+      }
+      // Add city from address if exists
+      if (vendor.address?.city) {
+        uniqueLocations.add(vendor.address.city);
+      }
+    });
 
     const formattedVendors = vendors.map((vendor) => ({
       _id: vendor._id,
@@ -280,27 +301,27 @@ export const getAllVendors = async (req, res) => {
       vendorType: vendor.vendorType,
       email: vendor.email,
       phone: vendor.phone,
-      address: vendor.address || {},
-      serviceAreas: vendor.serviceAreas || [],
-      pricingRange: {
-        min: vendor.pricingRange?.min || 0,
-        max: vendor.pricingRange?.max || 0,
-        currency: vendor.pricingRange?.currency || 'INR'
+      address: {
+        city: vendor.address?.city || '',
+        state: vendor.address?.state || '',
+        country: vendor.address?.country || 'India'
       },
+      serviceAreas: vendor.serviceAreas || [],
+      pricingRange: vendor.pricingRange ? {
+        min: vendor.pricingRange.min,
+        max: vendor.pricingRange.max,
+        currency: vendor.pricingRange.currency || 'INR'
+      } : null,
       profilePicture: vendor.profilePicture,
       galleryImages: vendor.galleryImages || [],
       isApproved: vendor.isApproved,
       appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
     }));
 
-    // Let's log a vendor's pricing range to debug
-    if (vendors.length > 0) {
-      console.log('Sample vendor pricing range:', vendors[0].pricingRange);
-    }
-
     res.status(200).json({
       message: "Vendors fetched successfully",
       vendors: formattedVendors,
+      locations: Array.from(uniqueLocations).sort()
     });
   } catch (error) {
     res.status(500).json({ message: "Error fetching vendors", error: error.message });
@@ -365,5 +386,41 @@ export const deleteUserByAdmin = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting user', error: error.message });
+  }
+};
+
+// Get vendor counts by category for a location
+export const getVendorCountsByLocation = async (req, res) => {
+  try {
+    const { location } = req.params;
+    
+    // If location is 'all-india', don't filter by location
+    const locationFilter = location.toLowerCase() === 'all-india' ? {} : {
+      $or: [
+        { 'address.city': { $regex: new RegExp(location, 'i') } },
+        { serviceAreas: { $regex: new RegExp(location, 'i') } }
+      ]
+    };
+
+    // Get all approved vendors for the location
+    const vendors = await Vendor.find({
+      ...locationFilter,
+      isApproved: true
+    });
+
+    // Count vendors by category
+    const categoryCounts = vendors.reduce((acc, vendor) => {
+      const category = vendor.vendorType;
+      acc[category] = (acc[category] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.status(200).json({
+      message: "Vendor counts fetched successfully",
+      categoryCounts,
+      totalVendors: vendors.length
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching vendor counts", error: error.message });
   }
 };

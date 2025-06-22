@@ -335,6 +335,191 @@ export const logDataExport = async (user, exportType, req = null) => {
   })
 }
 
+export const logInquirySent = async (user, vendor, inquiry, req = null) => {
+  return await logActivity({
+    type: "Inquiry Sent",
+    description: `${user.name} sent an inquiry to ${vendor.businessName}`,
+    actor: {
+      id: user._id,
+      name: user.name,
+      role: user.role || "user",
+      email: user.email,
+    },
+    target: {
+      id: vendor._id,
+      name: vendor.businessName,
+      type: "vendor",
+    },
+    meta: {
+      inquiryId: inquiry._id,
+      inquiryType: inquiry.type,
+      timestamp: new Date(),
+    },
+    severity: "low",
+    req,
+  });
+};
+
+export const logBookingCreated = async (user, vendor, booking, req = null) => {
+  return await logActivity({
+    type: "Booking Created",
+    description: `${user.name} created a booking with ${vendor.businessName}`,
+    actor: {
+      id: user._id,
+      name: user.name,
+      role: user.role || "user",
+      email: user.email,
+    },
+    target: {
+      id: vendor._id,
+      name: vendor.businessName,
+      type: "vendor",
+    },
+    meta: {
+      bookingId: booking._id,
+      eventDate: booking.eventDate,
+      status: booking.status,
+      timestamp: new Date(),
+    },
+    severity: "medium",
+    req,
+  });
+};
+
+export const logBookingStatusUpdate = async (booking, updatedBy, newStatus, req = null) => {
+  return await logActivity({
+    type: "Booking Updated",
+    description: `Booking status updated to ${newStatus}`,
+    actor: {
+      id: updatedBy._id,
+      name: updatedBy.name || updatedBy.businessName,
+      role: updatedBy.role,
+      email: updatedBy.email,
+    },
+    target: {
+      id: booking._id,
+      name: `Booking #${booking._id}`,
+      type: "booking",
+    },
+    meta: {
+      oldStatus: booking.status,
+      newStatus: newStatus,
+      timestamp: new Date(),
+    },
+    severity: "medium",
+    req,
+  });
+};
+
+export const logVendorProfileUpdate = async (vendor, updatedFields, req = null) => {
+  return await logActivity({
+    type: "Vendor Profile Updated",
+    description: `${vendor.businessName} updated their profile`,
+    actor: {
+      id: vendor._id,
+      name: vendor.businessName,
+      role: "vendor",
+      email: vendor.email,
+    },
+    meta: {
+      updatedFields: Object.keys(updatedFields),
+      timestamp: new Date(),
+    },
+    severity: "low",
+    req,
+  });
+};
+
+export const logPackageUpdate = async (vendor, action, packageDetails, req = null) => {
+  return await logActivity({
+    type: "Package Updated",
+    description: `${vendor.businessName} ${action} a package`,
+    actor: {
+      id: vendor._id,
+      name: vendor.businessName,
+      role: "vendor",
+      email: vendor.email,
+    },
+    target: {
+      id: packageDetails._id,
+      name: packageDetails.name,
+      type: "package",
+    },
+    meta: {
+      action: action,
+      packageId: packageDetails._id,
+      timestamp: new Date(),
+    },
+    severity: "low",
+    req,
+  });
+};
+
+export const logUserWishlistUpdate = async (user, vendor, action, req = null) => {
+  return await logActivity({
+    type: "Wishlist Updated",
+    description: `${user.name} ${action} ${vendor.businessName} to wishlist`,
+    actor: {
+      id: user._id,
+      name: user.name,
+      role: "user",
+      email: user.email,
+    },
+    target: {
+      id: vendor._id,
+      name: vendor.businessName,
+      type: "vendor",
+    },
+    meta: {
+      action: action,
+      timestamp: new Date(),
+    },
+    severity: "low",
+    req,
+  });
+};
+
+export const logGuestListUpdate = async (user, action, guestCount, req = null) => {
+  return await logActivity({
+    type: "Guest List Updated",
+    description: `${user.name} ${action} guest list`,
+    actor: {
+      id: user._id,
+      name: user.name,
+      role: "user",
+      email: user.email,
+    },
+    meta: {
+      action: action,
+      guestCount: guestCount,
+      timestamp: new Date(),
+    },
+    severity: "low",
+    req,
+  });
+};
+
+export const logBudgetUpdate = async (user, action, amount, category, req = null) => {
+  return await logActivity({
+    type: "Budget Updated",
+    description: `${user.name} ${action} budget`,
+    actor: {
+      id: user._id,
+      name: user.name,
+      role: "user",
+      email: user.email,
+    },
+    meta: {
+      action: action,
+      amount: amount,
+      category: category,
+      timestamp: new Date(),
+    },
+    severity: "low",
+    req,
+  });
+};
+
 // Batch logging for multiple activities
 export const logBatchActivities = async (activities) => {
   try {

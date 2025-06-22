@@ -1,6 +1,7 @@
 import Booking from '../models/Booking.js';
 import Vendor from '../models/Vendor.js';
 import mongoose from 'mongoose';
+import { logBookingCreated, logBookingStatusUpdate } from '../utils/activityLogger.js';
 
 // Get all bookings for a user
 export const getUserBookings = async (req, res) => {
@@ -129,9 +130,13 @@ export const createBooking = async (req, res) => {
       plannedAmount: Number(plannedAmount),
       spentAmount: 0,
       notes: notes || '',
+      status: 'pending'
     });
 
     await newBooking.save();
+
+    // Log the activity
+    await logBookingCreated(req.user, vendor, newBooking, req);
 
     res.status(201).json({
       success: true,
@@ -209,6 +214,9 @@ export const updateBooking = async (req, res) => {
     if (updateData.notes !== undefined) booking.notes = updateData.notes;
 
     await booking.save();
+
+    // Log the activity
+    await logBookingStatusUpdate(booking, req.user, updateData.status, req);
 
     res.status(200).json({
       success: true,
@@ -296,15 +304,11 @@ export const getAvailableVendors = async (req, res) => {
   }
 }; 
 
-
-
-
 // Vendor  booking List 
 export const getVendorBookings = async (req, res) => {
   console.log(" start section ")
   try {
    const vendorId = req.params.vendorId;
-
 
     
     const bookings = await Booking.find({ vendor: vendorId })
@@ -314,7 +318,6 @@ export const getVendorBookings = async (req, res) => {
       if(!bookings){
         res.status(200).send({msg:"No Booking Found "})
       }
-
 
     const totalPlanned = bookings.reduce((sum, b) => sum + (b.plannedAmount || 0), 0);
     const totalSpent = bookings.reduce((sum, b) => sum + (b.spentAmount || 0), 0);

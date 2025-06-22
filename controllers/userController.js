@@ -7,6 +7,7 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import Contact from "../models/Contact.js";
 import ImageKit from "imagekit";
+import { logUserLogin } from '../utils/activityLogger.js';
 
 dotenv.config();
 
@@ -401,6 +402,9 @@ export const login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
+
+    // Log the login activity
+    await logUserLogin(user, req);
 
     res.status(200).json({
       message: "Login successful",
@@ -810,14 +814,26 @@ export const updatePassword = async (req, res) => {
 //UserContact
 //submit contact form
 export const submitContactForm = async (req, res) => {
-  const { name, email, message } = req.body;
+  const { name, email, phone, message } = req.body;
 
   try {
-    const newContact = new Contact({ name, email, message });
+    if (!name || !email || !phone || !message) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const newContact = new Contact({ name, email, phone, message });
     await newContact.save();
-    return res.status(201).send({ message: "Message sent successfully" });
+    
+    return res.status(201).json({ 
+      success: true,
+      message: "Message sent successfully" 
+    });
   } catch (error) {
-    return res.status(500).send({ error: "Please try again" });
+    console.error('Error submitting contact form:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: "Failed to send message. Please try again." 
+    });
   }
 };
 

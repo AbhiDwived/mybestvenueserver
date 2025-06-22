@@ -10,7 +10,8 @@ import {
   resendAdminOtp,
   deleteVendorByAdmin,
   getAllUsers,
-  deleteUserByAdmin, // ✅ New import
+  deleteUserByAdmin,
+  getVendorCountsByLocation
 } from '../controllers/adminController.js';
 
 import { VerifyAdmin } from '../middlewares/authMiddleware.js';
@@ -33,7 +34,10 @@ router.get('/pending_vendor', VerifyAdmin, getPendingVendors);
 router.put('/approve/:vendorId', VerifyAdmin, approveVendor);
 router.delete('/delete-vendor/:vendorId', VerifyAdmin, deleteVendorByAdmin);
 
-router.get('/all_users', VerifyAdmin, getAllUsers); // ✅ All users
-router.delete('/delete-user/:userId', VerifyAdmin, deleteUserByAdmin); // ✅ Delete user
+router.get('/all_users', VerifyAdmin, getAllUsers);
+router.delete('/delete-user/:userId', VerifyAdmin, deleteUserByAdmin);
+
+// New route for vendor counts by location
+router.get('/vendor-counts/:location', getVendorCountsByLocation);
 
 export default router;
