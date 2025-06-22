@@ -1,6 +1,8 @@
 import express from 'express';
 import upload from '../middlewares/upload.js';
 import { uploadToImageKit } from '../middlewares/imageKitUpload.js';
+import { validate, vendorValidation, userValidation } from '../middlewares/validation.js';
+import { VerifyVendor, VerifyAdmin, CheckVendorApproval } from '../middlewares/authMiddleware.js';
 
 import {
   registerVendor,
@@ -25,12 +27,11 @@ import {
   updateVendorPricingRange,
 } from '../controllers/vendorController.js';
 
-import { VerifyVendor, VerifyAdmin, CheckVendorApproval } from '../middlewares/authMiddleware.js';
-
 const router = express.Router();
 
 // Register new vendor (with OTP)
 router.post('/register', 
+  validate(vendorValidation.register),
   upload.single('profilePicture'),
   (req, res, next) => {
     // Set the folder path for vendor profile pictures
@@ -48,7 +49,7 @@ router.post('/vendorverify-otp', verifyVendorOtp);
 router.post('/resendvendor-otp', resendVendorOtp);
 
 // Login vendor
-router.post('/login', loginVendor);
+router.post('/login', validate(userValidation.login), loginVendor);
 
 // Forgot password
 router.post('/forgot-password', vendorForgotPassword);
@@ -63,6 +64,7 @@ router.post('/reset_password', resetVendorPassword);
 router.put('/update/:vendorId', 
   VerifyVendor, 
   CheckVendorApproval, 
+  validate(vendorValidation.register),
   upload.single('profilePicture'),
   (req, res, next) => {
     // Set the folder path for vendor profile pictures
@@ -77,7 +79,7 @@ router.put('/update/:vendorId',
 router.delete('/delete/:vendorId', VerifyAdmin, deleteVendor);
 
 // Get vendor by ID
-router.get('/vendor/:vendorId', VerifyVendor, getVendorById);
+router.get('/vendor/:vendorId', getVendorById);
 
 // Handle user inquiry replies
 router.post('/inquiry-reply/:vendorId', VerifyVendor, addUserInquiryReply);

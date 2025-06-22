@@ -28,12 +28,14 @@ import {
 import upload from "../middlewares/upload.js";
 import { uploadToImageKit, setImagePath } from "../middlewares/upload.js";
 import { VerifyUser } from "../middlewares/authMiddleware.js";
+import { validate, userValidation, contactValidation } from '../middlewares/validation.js';
 
 const router = express.Router();
 
 // Register route with ImageKit upload
 router.post(
   "/register",
+  validate(userValidation.register),
   upload.single("profilePhoto"),
   setImagePath("/users"), // Set the folder path for user uploads
   uploadToImageKit,
@@ -45,7 +47,7 @@ router.post("/verify-otp", verifyOtp);
 router.post("/resend-otp", resendOtp);
 
 // Login route
-router.post("/login", login);
+router.post("/login", validate(userValidation.login), login);
 
 // Forgot Password with OTP
 router.post("/forgot_password", forgotPassword);
@@ -58,6 +60,7 @@ router.get("/",VerifyUser, getUserProfile);
 router.put(
   "/update-profile/:userId",
   VerifyUser,
+  validate(userValidation.updateProfile),
   upload.single("profilePhoto"),
   setImagePath("/users"),
   uploadToImageKit,
@@ -86,7 +89,7 @@ router.post("/userInquiryMessage/:userId", VerifyUser, addUserInquiryMessage);
 router.put("/update-password/:userId", updatePassword);
 
 //post
-router.post("/contact", submitContactForm);
+router.post("/contact", validate(contactValidation.create), submitContactForm);
 
 //get
 router.get("/contacts", getAllMessage);
