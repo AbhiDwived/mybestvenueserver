@@ -18,6 +18,7 @@ import bookingRoutes from './routes/bookingRoutes.js';
 import checklistRoutes from './routes/checklistRoutes.js';
 import savedVendorRoutes from './routes/savedVendorRoutes.js';
 import guestRoutes from './routes/guestRoutes.js';
+import subscriberRoutes from './routes/subscriberRoutes.js';
 
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -78,6 +79,7 @@ app.use('/api/v1/booking', bookingRoutes);
 app.use('/api/v1/checklist', checklistRoutes);
 app.use('/api/v1/saved-vendors', savedVendorRoutes);
 app.use('/api/v1/guest', guestRoutes);
+app.use('/api/v1/subscriber', subscriberRoutes);
 
 
 // Error Handling Middleware (should be last)
