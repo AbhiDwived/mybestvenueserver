@@ -8,6 +8,8 @@ import {
   deleteBooking,
   getAvailableVendors,
   getVendorBookings,
+  updateVendorBooking
+  
 } from '../controllers/bookingController.js';
 import { VerifyUser, VerifyVendor } from '../middlewares/authMiddleware.js';
 
@@ -17,11 +19,16 @@ const router = express.Router();
 router.get('/', VerifyUser, getUserBookings);
 router.get('/vendors', VerifyUser, getAvailableVendors);
 router.get('/:bookingId', VerifyUser, getBookingById);
-router.post('/', VerifyUser, validate(bookingValidation.create), createBooking);
+router.post('/', VerifyUser, createBooking);
 router.put('/:bookingId', VerifyUser, updateBooking);
 router.delete('/:bookingId', VerifyUser, deleteBooking);
 
+
+
 // vendor Routes
-router.get("/getvendorBookings/:vendorId", VerifyVendor, getVendorBookings);
+
+router.get("/getvendorBookings/:vendorId",VerifyVendor, getVendorBookings);
+router.put("/updateVendorBooking/:bookingId",VerifyVendor,updateVendorBooking);
+
 
 export default router; 

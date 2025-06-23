@@ -13,11 +13,12 @@ export const uploadToImageKit = async (req, res, next) => {
         const response = await imagekit.upload({
             file: base64Image,
             fileName: `${Date.now()}-${req.file.originalname}`,
-            folder: '/blog-images' // You can customize the folder structure
+            folder: req.imagePath || '/uploads' // Use the provided folder path or default
         });
 
-        // Add ImageKit URL to request object
+        // Add ImageKit URL to request object - set both for backward compatibility
         req.imageUrl = response.url;
+        req.fileUrl = response.url;
         
         next();
     } catch (error) {

@@ -335,12 +335,17 @@ export const loginVendor = async (req, res) => {
 // Update vendor profile
 export const updateVendorProfile = async (req, res) => {
   try {
-    const vendorId = req.params.id;
+    const vendorId = req.params.vendorId;
     const updateData = req.body;
 
     const vendor = await Vendor.findById(vendorId);
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
+    }
+
+    // If there's a new image uploaded via ImageKit
+    if (req.imageUrl) {
+      updateData.profilePicture = req.imageUrl;
     }
 
     // Update the vendor profile

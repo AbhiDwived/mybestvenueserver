@@ -3,6 +3,7 @@ import Vendor from '../models/Vendor.js';
 import mongoose from 'mongoose';
 import { logBookingCreated, logBookingStatusUpdate } from '../utils/activityLogger.js';
 
+
 // Get all bookings for a user
 export const getUserBookings = async (req, res) => {
   try {
@@ -130,13 +131,9 @@ export const createBooking = async (req, res) => {
       plannedAmount: Number(plannedAmount),
       spentAmount: 0,
       notes: notes || '',
-      status: 'pending'
     });
 
     await newBooking.save();
-
-    // Log the activity
-    await logBookingCreated(req.user, vendor, newBooking, req);
 
     res.status(201).json({
       success: true,
@@ -214,9 +211,6 @@ export const updateBooking = async (req, res) => {
     if (updateData.notes !== undefined) booking.notes = updateData.notes;
 
     await booking.save();
-
-    // Log the activity
-    await logBookingStatusUpdate(booking, req.user, updateData.status, req);
 
     res.status(200).json({
       success: true,
@@ -304,11 +298,15 @@ export const getAvailableVendors = async (req, res) => {
   }
 }; 
 
+
+
+
 // Vendor  booking List 
 export const getVendorBookings = async (req, res) => {
   console.log(" start section ")
   try {
    const vendorId = req.params.vendorId;
+
 
     
     const bookings = await Booking.find({ vendor: vendorId })
@@ -318,6 +316,7 @@ export const getVendorBookings = async (req, res) => {
       if(!bookings){
         res.status(200).send({msg:"No Booking Found "})
       }
+
 
     const totalPlanned = bookings.reduce((sum, b) => sum + (b.plannedAmount || 0), 0);
     const totalSpent = bookings.reduce((sum, b) => sum + (b.spentAmount || 0), 0);
@@ -346,6 +345,94 @@ export const getVendorBookings = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+
+
+// // update vendor bookings
+
+export const updateVendorBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    console.log("req.booking", bookingId);
+    const vendorId = req.user.id;
+    const updateData = req.body;
+    if (!vendorId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: Vendor not found in request',
+      });
+    }
+    console.log("req.vendor.id", vendorId);
+
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid booking ID',
+      });
+    }
+
+    // Check if booking exists and belongs to the user
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      vendor: vendorId,
+    });
+    console.log("booking", booking);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found',
+      });
+    }
+
+    // Check if vendor exists if vendorId is provided
+    if (updateData.vendorId) {
+      if (!mongoose.Types.ObjectId.isValid(updateData.vendorId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid vendor ID',
+        });
+      }
+
+      const vendor = await Vendor.findById(updateData.vendorId);
+      if (!vendor) {
+        return res.status(404).json({
+          success: false,
+          message: 'Vendor not found',
+        });
+      }
+      
+      // Update the vendor reference
+      booking.vendor = updateData.vendorId;
+    }
+
+    // Update fields
+    if (updateData.vendorName !== undefined) booking.vendorName = updateData.vendorName;
+    if (updateData.eventType !== undefined) booking.eventType = updateData.eventType;
+    if (updateData.eventDate !== undefined) booking.eventDate = updateData.eventDate || null;
+    if (updateData.eventTime !== undefined) booking.eventTime = updateData.eventTime;
+    if (updateData.venue !== undefined) booking.venue = updateData.venue;
+    if (updateData.guestCount !== undefined) booking.guestCount = Number(updateData.guestCount) || 0;
+    if (updateData.plannedAmount !== undefined) booking.plannedAmount = Number(updateData.plannedAmount);
+    if (updateData.spentAmount !== undefined) booking.spentAmount = Number(updateData.spentAmount);
+    if (updateData.status !== undefined) booking.status = updateData.status;
+    if (updateData.notes !== undefined) booking.notes = updateData.notes;
+
+    await booking.save();
+
+    res.status(200).json({
+      success: true,
+      data: booking,
+      message: 'Booking updated successfully',
+    });
+  } catch (error) {
+    console.error('Error updating booking:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal Server Error ',
       error: error.message,
     });
   }
