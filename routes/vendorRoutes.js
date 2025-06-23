@@ -25,6 +25,8 @@ import {
   addFaq,
   getVendorsFaqs,
   updateVendorPricingRange,
+  getUserListById,
+  createuserBookingByVendor
 } from '../controllers/vendorController.js';
 
 const router = express.Router();
@@ -102,4 +104,10 @@ router.get("/getfaqsbyVendor/:vendorId",VerifyVendor,getVendorsFaqs);
 // Update vendor pricing range
 router.put('/pricing-range/:vendorId', VerifyVendor, updateVendorPricingRange);
 
+// get UserListBy userId 
+router.get("/getUserListByUserId/:userId",VerifyVendor,getUserListById);
+
+// create userBooking By vendor
+
+router.post("/createuserBookingbyVendor",VerifyVendor,createuserBookingByVendor);
 export default router;

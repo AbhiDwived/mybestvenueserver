@@ -1,12 +1,15 @@
 import bcrypt from 'bcryptjs';
+import mongoose from "mongoose";
 import jwt from 'jsonwebtoken';
 import Vendor from '../models/Vendor.js';
 import inquirySchema from '../models/Inquiry.js';
+import User from '../models/User.js';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import imagekit from '../config/imagekit.js';
 import Package from '../models/Package.js';
 import FAQ from '../models/Faq.js';
+import Booking from '../models/Booking.js';
 import { logUserLogin, logVendorProfileUpdate, logPackageUpdate } from '../utils/activityLogger.js';
 
 dotenv.config();
@@ -281,7 +284,7 @@ export const resetVendorPassword = async (req, res) => {
 
 // Login vendor
 export const loginVendor = async (req, res) => {
-  console.log("#######################Login Vendor Api Executed######################")
+  
   const { email, password } = req.body;
   try {
     const vendor = await Vendor.findOne({ email }).select('+password');
@@ -335,17 +338,12 @@ export const loginVendor = async (req, res) => {
 // Update vendor profile
 export const updateVendorProfile = async (req, res) => {
   try {
-    const vendorId = req.params.vendorId;
+    const vendorId = req.params.id;
     const updateData = req.body;
 
     const vendor = await Vendor.findById(vendorId);
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
-    }
-
-    // If there's a new image uploaded via ImageKit
-    if (req.imageUrl) {
-      updateData.profilePicture = req.imageUrl;
     }
 
     // Update the vendor profile
@@ -501,7 +499,7 @@ export const getVendorRepliedInquiryList = async (req, res) => {
     
     res.status(200).json({ message: 'Vendor reply list fetched successfully', modifiedList });
   } catch (error) {
-    console.error('Error in getVendorRepliedInquiryList:', error);
+    
     res.status(500).json({ message: 'Error fetching user inquiry list', error: error.message });
   }
 };
@@ -510,8 +508,8 @@ export const getVendorRepliedInquiryList = async (req, res) => {
 //  Add Services Package 
 export const addServicesPackage = async(req,res,next) =>{
   try{
-    console.log(" ##############addServicesPackageApi Executed #################");
-    // const { vendorId } = req.params;
+   
+    
     const {vendorId, packageName,description,price,offerPrice, services} = req.body;  
     const vendor = await Vendor.findOne({ _id: vendorId });
     if (!vendor) {
@@ -538,7 +536,7 @@ export const addServicesPackage = async(req,res,next) =>{
 
 // get all Services Packages
 export const getAllServicesPackages = async (req, res) => {
-  console.log(" ##############getAllServicesPackagesApi Executed #################");
+  
   try {
     const packages = await Package.find({valid:true}).sort({ createdAt: -1 });
     res.status(200).json({ message: 'Packages fetched successfully', packages });
@@ -549,7 +547,7 @@ export const getAllServicesPackages = async (req, res) => {
 }
 // get all Services Packages
 export const getVendorServicesPackages = async (req, res) => {
-  console.log(" ##############getVendorServicesPackagesApi Executed #################");
+  
   try {
     const { vendorId } = req.params;
     const packages = await Package.find({vendorId}).sort({ createdAt: -1 });
@@ -562,7 +560,7 @@ export const getVendorServicesPackages = async (req, res) => {
 
 //Update Services Package
 export const updateServicePackages = async(req,res,nexxt)=>{
-  console.log("################## updateServicePackagesApi Executed #################");
+  
   try{
     const {packageId} = req.params;
     const {vendorId, packageName,description,price,offerPrice, services} = req.body;  
@@ -584,7 +582,7 @@ export const updateServicePackages = async(req,res,nexxt)=>{
 
 // Delete Services Package
 export const deleteServicePackages = async(req,res,nexxt)=>{
-  console.log("################## deleteServicePackagesApi Executed #################");
+  
   try{
     const {packageId} = req.params;
     const result =await Package.findByIdAndDelete(
@@ -600,7 +598,7 @@ export const deleteServicePackages = async(req,res,nexxt)=>{
 
 // Add Faqs
 export const addFaq = async(req,res,nexxt)=>{
-  console.log("################## addFaqApi Executed #################");
+  
   try{
     const {vendorId, question, answer} = req.body;  
     const result = await FAQ.create({
@@ -618,7 +616,7 @@ export const addFaq = async(req,res,nexxt)=>{
 
 // getFaqs by getVendorsFaqs
 export const getVendorsFaqs = async (req, res) => {
-  console.log(" ##############getVendorsFaqsApi Executed #################");
+
   try {
     const { vendorId } = req.params;
     const faqs = await FAQ.find({vendorId}).sort({ createdAt: -1 });
@@ -709,6 +707,104 @@ export const updateVendorPackage = async (req, res) => {
       success: false,
       message: 'Failed to update package',
       error: error.message
+    });
+  }
+};
+
+
+
+//  get User List By UserId 
+export const getUserListById = async(req,res,next) => {
+ 
+  try{
+    const {userId} = req.params;
+    const result =await User.findOne({ _id : userId });
+    
+    res.status(200).json({ message: 'User fetched successfully',result });
+}catch(error){
+  
+  res.status(500).json({ message: 'Error fetching user', error: error.message }); 
+
+}
+}
+
+// user Booking for  Vendor by vendor 
+
+export const createuserBookingByVendor = async (req, res) => {
+  
+  try {
+    const vendorId = req.user.id;
+
+    const {
+    
+      userId,
+      vendorName,
+      eventType,
+      eventDate,
+      eventTime,
+      venue,
+      guestCount,
+      plannedAmount,
+      notes,
+    } = req.body;
+
+    // Validate required fields
+    if (!vendorName || !eventType || !plannedAmount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vendor name, event type, and planned amount are required',
+      });
+    }
+
+   
+    // let user = null;
+    if (userId) {
+      console.log("userId",userId)
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid User ID',
+        });
+      }
+
+      const user = await User.findById({_id:userId});
+      
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'user not found',
+        });
+      }
+    }
+
+    // Create new booking
+    const newBooking = new Booking({
+      user: userId,
+      vendor: vendorId || null,
+      vendorName,
+      eventType,
+      eventDate: eventDate || null,
+      eventTime: eventTime || null,
+      venue: venue || '',
+      guestCount: guestCount || 0,
+      plannedAmount: Number(plannedAmount),
+      spentAmount: 0,
+      notes: notes || '',
+    });
+
+    await newBooking.save();
+
+    res.status(200).json({
+      success: true,
+      data: newBooking,
+      message: 'Booking created successfully by vendor ',
+    });
+  } catch (error) {
+   
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
     });
   }
 };

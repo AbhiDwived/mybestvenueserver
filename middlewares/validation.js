@@ -32,13 +32,16 @@ export const userValidation = {
     })
   }),
   updateProfile: Joi.object({
-    name: Joi.string().min(3).max(50),
-    phone: Joi.string().pattern(/^[0-9]{10}$/),
-    address: Joi.string(),
-    city: Joi.string(),
-    state: Joi.string(),
-    country: Joi.string(),
-    weddingDate: Joi.date().iso()
+    name: Joi.string().required().min(3).max(50),
+    email: Joi.string().required().email(),
+    phone: Joi.string().required().pattern(/^[0-9]{10}$/),
+    address: Joi.string().allow(''),
+    city: Joi.string().allow(''),
+    state: Joi.string().allow(''),
+    country: Joi.string().allow(''),
+    weddingDate: Joi.date().iso().allow(null),
+    profilePhoto: Joi.string().uri().allow(''),
+    isVerified: Joi.boolean()
   })
 };
 
@@ -87,6 +90,52 @@ export const vendorValidation = {
     termsAccepted: Joi.boolean().valid(true).required().messages({
       'boolean.base': 'Terms acceptance is required',
       'any.only': 'You must accept the terms and conditions'
+    }),
+    profilePicture: Joi.string().uri().allow(''),
+    status: Joi.string().valid('Active', 'InActive'),
+    socialMediaLinks: Joi.object({
+      facebook: Joi.string().uri().allow(''),
+      instagram: Joi.string().uri().allow(''),
+      twitter: Joi.string().uri().allow(''),
+      linkedin: Joi.string().uri().allow(''),
+      others: Joi.string().uri().allow('')
+    }),
+    galleryImages: Joi.array().items(
+      Joi.object({
+        url: Joi.string().uri().required(),
+        uploadedAt: Joi.date()
+      })
+    ),
+    paymentMethods: Joi.array().items(Joi.string()),
+    packagePrices: Joi.array().items(
+      Joi.object({
+        name: Joi.string().required(),
+        price: Joi.number().required().min(0),
+        description: Joi.string()
+      })
+    )
+  }),
+  updateProfile: Joi.object({
+    businessName: Joi.string().min(3).max(100),
+    contactName: Joi.string().min(3).max(50),
+    phone: Joi.string().pattern(/^[0-9]{10}$/),
+    address: Joi.object({
+      street: Joi.string(),
+      city: Joi.string(),
+      state: Joi.string(),
+      country: Joi.string(),
+      zipCode: Joi.string()
+    }),
+    serviceAreas: Joi.array().items(Joi.string()),
+    description: Joi.string().max(1000),
+    profilePicture: Joi.string().uri().allow(''),
+    status: Joi.string().valid('Active', 'InActive'),
+    socialMediaLinks: Joi.object({
+      facebook: Joi.string().uri().allow(''),
+      instagram: Joi.string().uri().allow(''),
+      twitter: Joi.string().uri().allow(''),
+      linkedin: Joi.string().uri().allow(''),
+      others: Joi.string().uri().allow('')
     })
   })
 };
@@ -97,15 +146,26 @@ export const bookingValidation = {
     vendorId: Joi.string().required().messages({
       'string.empty': 'Vendor ID is required'
     }),
+    vendorName: Joi.string().required().messages({
+      'string.empty': 'Vendor name is required'
+    }),
+    eventType: Joi.string().required().messages({
+      'string.empty': 'Event type is required'
+    }),
     eventDate: Joi.date().iso().required().messages({
       'date.base': 'Please provide a valid event date',
       'any.required': 'Event date is required'
     }),
-    details: Joi.object({
-      eventType: Joi.string().required(),
-      guestCount: Joi.number().integer().min(1),
-      specialRequirements: Joi.string()
-    }).required()
+    eventTime: Joi.string(),
+    venue: Joi.string(),
+    guestCount: Joi.number().integer().min(0),
+    plannedAmount: Joi.number().required().min(0).messages({
+      'number.base': 'Planned amount must be a number',
+      'number.min': 'Planned amount cannot be negative'
+    }),
+    spentAmount: Joi.number().min(0),
+    status: Joi.string().valid('pending', 'confirmed', 'completed', 'cancelled'),
+    notes: Joi.string()
   })
 };
 
@@ -115,12 +175,26 @@ export const inquiryValidation = {
     vendorId: Joi.string().required().messages({
       'string.empty': 'Vendor ID is required'
     }),
-    message: Joi.string().required().min(10).max(1000).messages({
-      'string.empty': 'Message is required',
-      'string.min': 'Message must be at least 10 characters long',
-      'string.max': 'Message cannot exceed 1000 characters'
+    weddingDate: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).messages({
+      'string.pattern.base': 'Wedding date must be in DD/MM/YYYY format'
     }),
-    weddingDate: Joi.date().iso()
+    userMessage: Joi.array().items(
+      Joi.object({
+        message: Joi.string().required().min(10).max(1000).messages({
+          'string.empty': 'Message is required',
+          'string.min': 'Message must be at least 10 characters long',
+          'string.max': 'Message cannot exceed 1000 characters'
+        }),
+        vendorReply: Joi.object({
+          message: Joi.string(),
+          createdAt: Joi.date(),
+          updatedAt: Joi.date()
+        }),
+        date: Joi.date(),
+        time: Joi.string()
+      })
+    ),
+    replyStatus: Joi.string().valid('Pending', 'Replied')
   })
 };
 
