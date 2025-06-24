@@ -121,17 +121,11 @@ export const verifyOtp = async (req, res) => {
     console.log("Found user:", {
       id: user._id,
       email: user.email,
-      storedOtp: user.otp, // Now this will have a value
+      storedOtp: user.otp,
       otpExpires: user.otpExpires,
       isVerified: user.isVerified,
       now: new Date(),
     });
-
-    // Step 2: Check if already verified
-    if (user.isVerified) {
-      console.log("User is already verified.");
-      return res.status(400).json({ message: "User already verified" });
-    }
 
     // Step 3: Compare OTP and check expiration
     const trimmedOtp = otp?.toString().trim();
@@ -153,13 +147,12 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    // Step 4: Mark user as verified
-    user.isVerified = true;
+    // Clear OTP after successful verification
     user.otp = undefined;
     user.otpExpires = undefined;
     await user.save();
 
-    console.log("✅ OTP Verified Successfully. User marked as verified.");
+    console.log("✅ OTP Verified Successfully");
 
     // Generate JWT token
     const token = jwt.sign(
@@ -169,7 +162,7 @@ export const verifyOtp = async (req, res) => {
     );
 
     res.status(200).json({
-      message: "Registration completed successfully",
+      message: "OTP verified successfully",
       token,
       user: {
         id: user._id,
@@ -203,10 +196,6 @@ export const resendOtp = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (user.isVerified) {
-      return res.status(400).json({ message: "User already verified" });
-    }
-
     // Generate new OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
@@ -228,7 +217,7 @@ export const resendOtp = async (req, res) => {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: user.email,
-      subject: "Your New OTP for Registration",
+      subject: "Your New OTP Code",
       text: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
     };
 
@@ -813,7 +802,6 @@ export const updatePassword = async (req, res) => {
 };
 
 //UserContact
-//submit contact form
 export const submitContactForm = async (req, res) => {
   const { name, email, phone, message } = req.body;
 
