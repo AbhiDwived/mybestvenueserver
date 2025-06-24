@@ -94,7 +94,7 @@ router.get('/replied-inquiries', VerifyVendor, getVendorRepliedInquiryList);
 // Packages routes
 router.post('/addservicesPackage', VerifyVendor,addServicesPackage);
 router.get('/allservicesPackageList', VerifyVendor,getAllServicesPackages);
-router.get('/vendorservicesPackageList/:vendorId', VerifyVendor,getVendorServicesPackages);
+router.get('/vendorservicesPackageList/:vendorId',getVendorServicesPackages);
 router.put('/updateservicesPackage/:packageId', VerifyVendor,updateServicePackages);
 router.delete('/updateservicesPackage/:packageId', VerifyVendor,deleteServicePackages);
 
