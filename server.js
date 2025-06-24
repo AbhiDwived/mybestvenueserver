@@ -3,6 +3,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import connectDB from './config/db.js';  // Ensure .js extension for local imports
 import userRoutes from './routes/userRoutes.js';
 import vendorRoutes from './routes/vendorRoutes.js';
@@ -33,8 +35,27 @@ connectDB();  // Connect to MongoDB
 
 const app = express();
 
-// Middleware to handle CORS, JSON requests, and cookies
+// Security middleware
+app.use(helmet());
 
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
+app.use('/api/', limiter);
+
+// Stricter rate limits for auth routes
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 attempts per hour
+  message: 'Too many login attempts, please try again later.'
+});
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/auth/register', authLimiter);
+
+// Middleware to handle CORS, JSON requests, and cookies
 const allowedOrigins = [
   'http://localhost:5173',
   'https://mybestvenue.com'
@@ -57,9 +78,9 @@ app.use(
   })
 );
 
-
-
-app.use(express.json());
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
 // Serve uploads folder statically
@@ -81,13 +102,22 @@ app.use('/api/v1/saved-vendors', savedVendorRoutes);
 app.use('/api/v1/guest', guestRoutes);
 app.use('/api/v1/subscriber', subscriberRoutes);
 
-
 // Error Handling Middleware (should be last)
 app.use(errorHandler);
 
 // Temporary route for testing
 app.get('/', (req, res) => {
   res.send('API Running');
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date(),
+    uptime: process.uptime(),
+    memoryUsage: process.memoryUsage(),
+  });
 });
 
 const PORT = process.env.PORT || 5000;

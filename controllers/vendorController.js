@@ -342,9 +342,15 @@ export const updateVendorProfile = async (req, res) => {
     const vendorId = req.params.id;
     const updateData = req.body;
 
+    // Find the vendor first
     const vendor = await Vendor.findById(vendorId);
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
+    }
+
+    // If there's a new image uploaded via ImageKit
+    if (req.fileUrl) {
+      updateData.profilePicture = req.fileUrl;
     }
 
     // Update the vendor profile
@@ -357,10 +363,12 @@ export const updateVendorProfile = async (req, res) => {
     // Log the activity
     await logVendorProfileUpdate(vendor, updateData, req);
 
+    // Return the complete updated vendor object
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      vendor: updatedVendor
+      vendor: updatedVendor,
+      profilePicture: updatedVendor.profilePicture // Explicitly include the profile picture URL
     });
   } catch (error) {
     console.error('Error updating vendor profile:', error);

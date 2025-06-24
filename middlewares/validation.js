@@ -116,28 +116,40 @@ export const vendorValidation = {
     )
   }),
   updateProfile: Joi.object({
-    businessName: Joi.string().min(3).max(100),
-    contactName: Joi.string().min(3).max(50),
-    phone: Joi.string().pattern(/^[0-9]{10}$/),
+    _id: Joi.string(),
+    businessName: Joi.string().min(3).max(100).optional(),
+    contactName: Joi.string().min(3).max(50).optional(),
+    phone: Joi.string().optional(),
+    email: Joi.string().email().optional(),
+    vendorType: Joi.string().optional(),
+    description: Joi.string().max(1000).optional(),
+    serviceAreas: Joi.alternatives().try(
+      Joi.array().items(Joi.string()),
+      Joi.string()
+    ).optional(),
+    pricing: Joi.alternatives().try(
+      Joi.string(),
+      Joi.number()
+    ).optional(),
+    website: Joi.string().uri().allow('').optional(),
+    profilePicture: Joi.any().optional(),
+    termsAccepted: Joi.boolean().optional(),
+    isApproved: Joi.boolean().optional(),
     address: Joi.object({
-      street: Joi.string(),
-      city: Joi.string(),
-      state: Joi.string(),
-      country: Joi.string(),
-      zipCode: Joi.string()
-    }),
-    serviceAreas: Joi.array().items(Joi.string()),
-    description: Joi.string().max(1000),
-    profilePicture: Joi.string().uri().allow(''),
-    status: Joi.string().valid('Active', 'InActive'),
+      street: Joi.string().optional(),
+      city: Joi.string().optional(),
+      state: Joi.string().optional(),
+      country: Joi.string().optional(),
+      zipCode: Joi.string().optional()
+    }).optional(),
     socialMediaLinks: Joi.object({
-      facebook: Joi.string().uri().allow(''),
-      instagram: Joi.string().uri().allow(''),
-      twitter: Joi.string().uri().allow(''),
-      linkedin: Joi.string().uri().allow(''),
-      others: Joi.string().uri().allow('')
-    })
-  })
+      facebook: Joi.string().uri().allow('').optional(),
+      instagram: Joi.string().uri().allow('').optional(),
+      twitter: Joi.string().uri().allow('').optional(),
+      linkedin: Joi.string().uri().allow('').optional(),
+      others: Joi.string().uri().allow('').optional()
+    }).optional()
+  }).unknown(true)
 };
 
 // Booking validation schemas

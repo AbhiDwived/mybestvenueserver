@@ -64,10 +64,10 @@ router.post('/forgot_password_otp', verifyVendorResetOtp);
 router.post('/reset_password', resetVendorPassword);
 
 // Update vendor profile (vendor only)
-router.put('/update/:vendorId', 
+router.put('/update/:id', 
   VerifyVendor, 
   CheckVendorApproval, 
-  validate(vendorValidation.register),
+  validate(vendorValidation.updateProfile),
   upload.single('profilePicture'),
   (req, res, next) => {
     // Set the folder path for vendor profile pictures
