@@ -11,7 +11,8 @@ import {
   deleteVendorByAdmin,
   getAllUsers,
   deleteUserByAdmin,
-  getVendorCountsByLocation
+  getVendorCountsByLocation,
+  refreshToken
 } from '../controllers/adminController.js';
 
 import { VerifyAdmin } from '../middlewares/authMiddleware.js';
@@ -39,5 +40,7 @@ router.delete('/delete-user/:userId', VerifyAdmin, deleteUserByAdmin);
 
 // New route for vendor counts by location
 router.get('/vendor-counts/:location', getVendorCountsByLocation);
+
+router.post("/refresh-token", refreshToken);
 
 export default router;

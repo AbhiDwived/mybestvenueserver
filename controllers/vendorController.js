@@ -11,6 +11,7 @@ import Package from '../models/Package.js';
 import FAQ from '../models/Faq.js';
 import Booking from '../models/Booking.js';
 import { logUserLogin, logVendorProfileUpdate, logPackageUpdate } from '../utils/activityLogger.js';
+import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddleware.js';
 
 dotenv.config();
 
@@ -395,7 +396,7 @@ export const getVendorById = async (req, res) => {
   const { vendorId } = req.params;
 
   try {
-    const vendor = await Vendor.find({ _id: vendorId }); 
+    const vendor = await Vendor.findOne({ _id: vendorId }); 
     if (!vendor) {
       
       return res.status(404).json({ message: 'Vendor not found' });
@@ -806,6 +807,48 @@ export const createuserBookingByVendor = async (req, res) => {
       message: 'Server error',
       error: error.message,
     });
+  }
+};
+
+// Refresh token endpoint
+export const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'Refresh token required' });
+    }
+
+    const decoded = verifyRefreshToken(refreshToken);
+    if (!decoded) {
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    const vendor = await Vendor.findById(decoded.id).select('-password');
+    if (!vendor) {
+      return res.status(401).json({ message: 'Vendor not found' });
+    }
+
+    // Generate new tokens
+    const tokens = generateTokens({ id: vendor._id, email: vendor.email, role: 'vendor' });
+
+    res.status(200).json({
+      message: 'Token refreshed successfully',
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      vendor: {
+        id: vendor._id,
+        businessName: vendor.businessName,
+        email: vendor.email,
+        phone: vendor.phone,
+        address: vendor.address,
+        profilePicture: vendor.profilePicture,
+        role: 'vendor'
+      }
+    });
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    res.status(500).json({ message: 'Error refreshing token', error: error.message });
   }
 };
 

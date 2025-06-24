@@ -6,6 +6,7 @@ import User from '../models/User.js';
 import Admin from '../models/Admin.js';
 import Vendor from '../models/Vendor.js';
 import { logUserLogin } from '../utils/activityLogger.js';
+import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddleware.js';
 
 // Register Admin
 export const registerAdmin = async (req, res) => {
@@ -422,5 +423,46 @@ export const getVendorCountsByLocation = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Error fetching vendor counts", error: error.message });
+  }
+};
+
+// Refresh token endpoint
+export const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'Refresh token required' });
+    }
+
+    const decoded = verifyRefreshToken(refreshToken);
+    if (!decoded) {
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    const admin = await Admin.findById(decoded.id).select('-password');
+    if (!admin) {
+      return res.status(401).json({ message: 'Admin not found' });
+    }
+
+    // Generate new tokens
+    const tokens = generateTokens({ id: admin._id, email: admin.email, role: 'admin' });
+
+    res.status(200).json({
+      message: 'Token refreshed successfully',
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        phone: admin.phone,
+        profilePhoto: admin.profilePhoto,
+        role: 'admin'
+      }
+    });
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    res.status(500).json({ message: 'Error refreshing token', error: error.message });
   }
 };

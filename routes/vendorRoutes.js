@@ -26,7 +26,8 @@ import {
   getVendorsFaqs,
   updateVendorPricingRange,
   getUserListById,
-  createuserBookingByVendor
+  createuserBookingByVendor,
+  refreshToken
 } from '../controllers/vendorController.js';
 
 const router = express.Router();
@@ -81,7 +82,7 @@ router.put('/update/:vendorId',
 router.delete('/delete/:vendorId', VerifyAdmin, deleteVendor);
 
 // Get vendor by ID
-router.get('/vendor/:vendorId', getVendorById);
+router.get('/vendorbyId/:vendorId', getVendorById);
 
 // Handle user inquiry replies
 router.post('/inquiry-reply/:vendorId', VerifyVendor, addUserInquiryReply);
@@ -110,4 +111,7 @@ router.get("/getUserListByUserId/:userId",VerifyVendor,getUserListById);
 // create userBooking By vendor
 
 router.post("/createuserBookingbyVendor",VerifyVendor,createuserBookingByVendor);
+
+router.post("/refresh-token", refreshToken);
+
 export default router;

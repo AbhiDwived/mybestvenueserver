@@ -8,6 +8,7 @@ import dotenv from "dotenv";
 import Contact from "../models/Contact.js";
 import ImageKit from "imagekit";
 import { logUserLogin } from '../utils/activityLogger.js';
+import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddleware.js';
 
 dotenv.config();
 
@@ -843,5 +844,49 @@ export const getAllMessage = async (req, res) => {
     return res.status(201).send({ message: message });
   } catch (error) {
     return res.status(500).send({ error: "Failed to retrieve messages" });
+  }
+};
+
+// Refresh token endpoint
+export const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'Refresh token required' });
+    }
+
+    const decoded = verifyRefreshToken(refreshToken);
+    if (!decoded) {
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
+
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    // Generate new tokens
+    const tokens = generateTokens({ id: user._id, email: user.email, role: user.role });
+
+    res.status(200).json({
+      message: 'Token refreshed successfully',
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+        city: user.city,
+        state: user.state,
+        country: user.country,
+        profilePhoto: user.profilePhoto,
+      }
+    });
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    res.status(500).json({ message: 'Error refreshing token', error: error.message });
   }
 };

@@ -1,28 +1,75 @@
 // server/middlewares/authMiddleware.js
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 import Vendor from '../models/Vendor.js';
+import Admin from '../models/Admin.js';
 
-export const verifyToken = (req, res, next) => {
-  console.log('Authorization header:', req.headers.authorization);
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Authorization token missing or malformed' });
-  }
+// Generate tokens
+export const generateTokens = (payload) => {
+  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+  const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  return { accessToken, refreshToken };
+};
 
-  const token = authHeader.split(' ')[1];
-
-  console.log('Token to verify:', token);
-  console.log('JWT secret:', process.env.JWT_SECRET ? 'Loaded' : 'Missing');
-
+// Verify refresh token
+export const verifyRefreshToken = (token) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Token decoded:', decoded);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    console.error('❌ Token verification error:', err.message);
-    return res.status(401).json({ message: 'Token is invalid or expired' });
+    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    return decoded;
+  } catch (error) {
+    return null;
   }
+};
+
+// Middleware to verify access token
+export const verifyToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Check user type and set appropriate user data
+    let user;
+    switch (decoded.role) {
+      case 'user':
+        user = await User.findById(decoded.id).select('-password');
+        break;
+      case 'vendor':
+        user = await Vendor.findById(decoded.id).select('-password');
+        break;
+      case 'admin':
+        user = await Admin.findById(decoded.id).select('-password');
+        break;
+      default:
+        return res.status(401).json({ message: 'Invalid user type' });
+    }
+
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expired' });
+    }
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+// Role-based authorization middleware
+export const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    next();
+  };
 };
 
 // Add this for user verification

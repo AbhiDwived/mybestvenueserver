@@ -23,6 +23,7 @@ import {
   updatePassword,
   submitContactForm,
   getAllMessage,
+  refreshToken,
 } from "../controllers/userController.js";
 
 import upload from "../middlewares/upload.js";
@@ -93,4 +94,7 @@ router.post("/contact", validate(contactValidation.create), submitContactForm);
 
 //get
 router.get("/contacts", getAllMessage);
+
+router.post("/refresh-token", refreshToken);
+
 export default router;
