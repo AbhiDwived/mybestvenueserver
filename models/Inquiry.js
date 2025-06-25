@@ -40,11 +40,11 @@ const Inquiry = new mongoose.Schema({
         },
         date: {
             type: Date,
-            default: () => moment().format('DD/MM/YYYY'),
+            // default: () => moment().format('DD/MM/YYYY'),
         },
         time: {
             type: String,
-            default: () => moment().format('hh:mm:ss A'),
+            // default: () => moment().format('hh:mm:ss A'),
 
 
         },

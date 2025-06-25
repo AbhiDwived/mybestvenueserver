@@ -675,8 +675,8 @@ export const getWishlist = async (req, res) => {
 // ################################### add reply message api ####################################
 export const addUserInquiryMessage = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const { message, vendorId } = req.body;
+    // const { userId } = req.params;
+    const {userId, message, vendorId,name,email,phone,weddingDate } = req.body;
 
     const userCheck = await User.findOne({ _id: userId });
     // console.log("userCheck",userCheck)
@@ -700,6 +700,10 @@ export const addUserInquiryMessage = async (req, res) => {
       inquiry = await inquirySchema.create({
         // name: userCheck.name,
         // email: userCheck.email,
+        name,
+        email,
+        phone,
+        weddingDate,
         userId,
         vendorId,
         userMessage: [messageEntry],
@@ -711,6 +715,7 @@ export const addUserInquiryMessage = async (req, res) => {
       result: inquiry,
     });
   } catch (error) {
+    console.log("error",error);
     res.status(500).json({
       message: "Error saving user inquiry",
       error: error.message,

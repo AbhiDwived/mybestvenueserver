@@ -21,6 +21,7 @@ import checklistRoutes from './routes/checklistRoutes.js';
 import savedVendorRoutes from './routes/savedVendorRoutes.js';
 import guestRoutes from './routes/guestRoutes.js';
 import subscriberRoutes from './routes/subscriberRoutes.js';
+import sitemapRoutes from './routes/sitemapRoutes.js';
 
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -85,6 +86,9 @@ app.use(cookieParser());
 
 // Serve uploads folder statically
 app.use('/uploads', express.static('uploads'));
+
+// Add sitemap routes before other routes
+app.use('/', sitemapRoutes);
 
 // API Versioning Routes
 app.use('/api/v1/user', userRoutes);  
