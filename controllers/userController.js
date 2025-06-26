@@ -895,3 +895,44 @@ export const refreshToken = async (req, res) => {
     res.status(500).json({ message: 'Error refreshing token', error: error.message });
   }
 };
+
+// Get user profile by ID
+export const getUserProfileById = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const user = await User.findById(userId).select('name email phone profilePhoto location weddingDate partnerName about city state country');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    // Format the user data
+    const formattedUser = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      profilePhoto: user.profilePhoto,
+      location: user.city || user.state || user.country || 'Location not set',
+      weddingDate: user.weddingDate,
+      partnerName: user.partnerName,
+      about: user.about,
+      city: user.city,
+      state: user.state,
+      country: user.country
+    };
+
+    res.status(200).json({
+      success: true,
+      user: formattedUser
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};

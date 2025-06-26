@@ -438,3 +438,52 @@ export const updateVendorBooking = async (req, res) => {
   }
 };
 
+// Get all bookings (Admin only)
+export const getAllBookings = async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only admin can access all bookings.',
+      });
+    }
+
+    // Find all bookings with populated user and vendor details
+    const bookings = await Booking.find()
+      .populate('user', 'name email phone')
+      .populate('vendor', 'businessName email phone')
+      .sort({ createdAt: -1 });
+
+    // Calculate statistics
+    const totalPlanned = bookings.reduce((sum, booking) => sum + (booking.plannedAmount || 0), 0);
+    const totalSpent = bookings.reduce((sum, booking) => sum + (booking.spentAmount || 0), 0);
+    
+    const statusCounts = bookings.reduce((counts, booking) => {
+      const status = booking.status?.toLowerCase();
+      counts[status] = (counts[status] || 0) + 1;
+      return counts;
+    }, {});
+
+    res.status(200).json({
+      success: true,
+      data: {
+        bookings,
+        totalPlanned,
+        totalSpent,
+        totalBookingsCount: bookings.length,
+        completedBookingsCount: statusCounts['completed'] || 0,
+        pendingBookingsCount: statusCounts['pending'] || 0,
+        confirmedBookingsCount: statusCounts['confirmed'] || 0,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching all bookings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+};
+

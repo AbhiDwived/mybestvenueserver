@@ -24,12 +24,15 @@ import {
   submitContactForm,
   getAllMessage,
   refreshToken,
+  getUserProfileById,
 } from "../controllers/userController.js";
 
 import upload from "../middlewares/upload.js";
 import { uploadToImageKit, setImagePath } from "../middlewares/upload.js";
 import { VerifyUser } from "../middlewares/authMiddleware.js";
 import { validate, userValidation, contactValidation } from '../middlewares/validation.js';
+import { verifyToken } from "../middlewares/authMiddleware.js";
+import { verifyRole } from "../middlewares/roleMiddleware.js";
 
 const router = express.Router();
 
@@ -55,7 +58,7 @@ router.post("/forgot_password", forgotPassword);
 router.post("/verify_password_reset", verifyPasswordReset);
 router.post("/reset_password", resetPassword);
 
-router.get("/",VerifyUser, getUserProfile);
+router.get("/UserProfile",VerifyUser, getUserProfile);
 
 // Update profile route with ImageKit upload
 router.put(
@@ -96,5 +99,8 @@ router.post("/contact", validate(contactValidation.create), submitContactForm);
 router.get("/contacts", getAllMessage);
 
 router.post("/refresh-token", refreshToken);
+
+// Get user profile by ID (protected route, only for vendors and admins)
+router.get("/profile/:userId", getUserProfileById);
 
 export default router;
