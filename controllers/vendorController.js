@@ -860,4 +860,318 @@ export const refreshToken = async (req, res) => {
   }
 };
 
+// Portfolio management functions
+export const uploadPortfolioImage = async (req, res) => {
+  try {
+    const vendorId = req.user.id;
+    
+    if (!req.fileUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image uploaded'
+      });
+    }
+    
+    // Find the vendor
+    const vendor = await Vendor.findById(vendorId);
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    // Initialize portfolio array if it doesn't exist
+    if (!vendor.portfolio) {
+      vendor.portfolio = {
+        images: [],
+        videos: []
+      };
+    }
+    
+    // Add new image to portfolio
+    vendor.portfolio.images.push({
+      url: req.fileUrl,
+      title: req.body.title || `Portfolio Image ${vendor.portfolio.images.length + 1}`,
+      description: req.body.description || '',
+      createdAt: new Date()
+    });
+    
+    await vendor.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Portfolio image uploaded successfully',
+      image: vendor.portfolio.images[vendor.portfolio.images.length - 1]
+    });
+  } catch (error) {
+    console.error('Error uploading portfolio image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+export const getPortfolioImages = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    
+    // Find the vendor
+    const vendor = await Vendor.findById(vendorId);
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    // Return portfolio images
+    const images = vendor.portfolio?.images || [];
+    
+    res.status(200).json({
+      success: true,
+      images
+    });
+  } catch (error) {
+    console.error('Error fetching portfolio images:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+export const deletePortfolioImage = async (req, res) => {
+  try {
+    const vendorId = req.user.id;
+    const { imageId } = req.params;
+    
+    // Find the vendor
+    const vendor = await Vendor.findById(vendorId);
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    // Find the image in the portfolio
+    if (!vendor.portfolio || !vendor.portfolio.images) {
+      return res.status(404).json({
+        success: false,
+        message: 'Portfolio not found'
+      });
+    }
+    
+    const imageIndex = vendor.portfolio.images.findIndex(img => img._id.toString() === imageId);
+    
+    if (imageIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Image not found in portfolio'
+      });
+    }
+    
+    // Get the image URL to delete from ImageKit
+    const imageUrl = vendor.portfolio.images[imageIndex].url;
+    
+    // Delete from ImageKit if it's an ImageKit URL
+    if (imageUrl && imageUrl.includes('imagekit')) {
+      try {
+        const fileId = getImageKitFileId(imageUrl);
+        if (fileId) {
+          await imagekit.deleteFile(fileId);
+        }
+      } catch (error) {
+        console.error('Error deleting image from ImageKit:', error);
+        // Continue with deletion from database even if ImageKit deletion fails
+      }
+    }
+    
+    // Remove the image from the portfolio
+    vendor.portfolio.images.splice(imageIndex, 1);
+    await vendor.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Portfolio image deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting portfolio image:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+export const uploadPortfolioVideo = async (req, res) => {
+  try {
+    const vendorId = req.user.id;
+    let videoUrl = req.body.url;
+    const title = req.body.title || `Portfolio Video`;
+
+    // Handle file upload if a file is present
+    if (req.file) {
+      try {
+        // Upload file to ImageKit
+        const uploadResponse = await imagekit.upload({
+          file: req.file.buffer,
+          fileName: `vendor_portfolio_video_${vendorId}_${Date.now()}`,
+          folder: `/vendors/${vendorId}/portfolio/videos`
+        });
+
+        // Use ImageKit URL
+        videoUrl = uploadResponse.url;
+      } catch (uploadError) {
+        console.error('Video Upload to ImageKit Error:', uploadError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload video',
+          error: uploadError.message
+        });
+      }
+    }
+
+    // Validate video URL
+    if (!videoUrl) {
+      return res.status(400).json({
+        success: false,
+        message: 'Video URL or file is required'
+      });
+    }
+
+    // Find the vendor
+    const vendor = await Vendor.findById(vendorId);
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    // Initialize portfolio array if it doesn't exist
+    if (!vendor.portfolio) {
+      vendor.portfolio = {
+        images: [],
+        videos: []
+      };
+    }
+    
+    // Add new video to portfolio
+    const newVideo = {
+      url: videoUrl,
+      title: title,
+      description: req.body.description || '',
+      createdAt: new Date()
+    };
+
+    vendor.portfolio.videos.push(newVideo);
+    
+    await vendor.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Portfolio video added successfully',
+      video: newVideo
+    });
+  } catch (error) {
+    console.error('Error adding portfolio video:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+export const getPortfolioVideos = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    
+    // Find the vendor
+    const vendor = await Vendor.findById(vendorId);
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    // Return portfolio videos
+    const videos = vendor.portfolio?.videos || [];
+    
+    res.status(200).json({
+      success: true,
+      videos
+    });
+  } catch (error) {
+    console.error('Error fetching portfolio videos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
+export const deletePortfolioVideo = async (req, res) => {
+  try {
+    const vendorId = req.user.id;
+    const { videoId } = req.params;
+    
+    // Find the vendor
+    const vendor = await Vendor.findById(vendorId);
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found'
+      });
+    }
+    
+    // Find the video in the portfolio
+    if (!vendor.portfolio || !vendor.portfolio.videos) {
+      return res.status(404).json({
+        success: false,
+        message: 'Portfolio not found'
+      });
+    }
+    
+    const videoIndex = vendor.portfolio.videos.findIndex(vid => vid._id.toString() === videoId);
+    
+    if (videoIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Video not found in portfolio'
+      });
+    }
+    
+    // Remove the video from the portfolio
+    vendor.portfolio.videos.splice(videoIndex, 1);
+    await vendor.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Portfolio video deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting portfolio video:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};
+
 

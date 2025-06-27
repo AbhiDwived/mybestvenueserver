@@ -3,6 +3,7 @@ import upload from '../middlewares/upload.js';
 import { uploadToImageKit } from '../middlewares/imageKitUpload.js';
 import { validate, vendorValidation, userValidation } from '../middlewares/validation.js';
 import { VerifyVendor, VerifyAdmin, CheckVendorApproval } from '../middlewares/authMiddleware.js';
+import multer from 'multer';
 
 import {
   registerVendor,
@@ -27,10 +28,33 @@ import {
   updateVendorPricingRange,
   getUserListById,
   createuserBookingByVendor,
-  refreshToken
+  refreshToken,
+  uploadPortfolioImage,
+  getPortfolioImages,
+  deletePortfolioImage,
+  uploadPortfolioVideo,
+  getPortfolioVideos,
+  deletePortfolioVideo
 } from '../controllers/vendorController.js';
 
 const router = express.Router();
+
+// Configure multer for video upload
+const videoUpload = multer({
+  // Limit file size to 50MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  
+  // File filter for video types
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo'];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only MP4, AVI, and MOV are allowed.'), false);
+    }
+  }
+});
 
 // Register new vendor (with OTP)
 router.post('/register', 
@@ -113,5 +137,34 @@ router.get("/getUserListByUserId/:userId",VerifyVendor,getUserListById);
 router.post("/createuserBookingbyVendor",VerifyVendor,createuserBookingByVendor);
 
 router.post("/refresh-token", refreshToken);
+
+// Portfolio management routes
+// Upload portfolio image (vendor only)
+router.post('/portfolio/image',
+  VerifyVendor,
+  CheckVendorApproval,
+  upload.single('image'),
+  (req, res, next) => {
+    req.imagePath = '/vendors/portfolio';
+    next();
+  },
+  uploadToImageKit,
+  uploadPortfolioImage
+);
+
+// Get vendor portfolio images (public)
+router.get('/portfolio/images/:vendorId', getPortfolioImages);
+
+// Delete portfolio image (vendor only)
+router.delete('/portfolio/image/:imageId', VerifyVendor, CheckVendorApproval, deletePortfolioImage);
+
+// Upload portfolio video info (vendor only)
+router.post('/portfolio/video', VerifyVendor, CheckVendorApproval, videoUpload.single('video'), uploadPortfolioVideo);
+
+// Get vendor portfolio videos (public)
+router.get('/portfolio/videos/:vendorId', getPortfolioVideos);
+
+// Delete portfolio video (vendor only)
+router.delete('/portfolio/video/:videoId', VerifyVendor, CheckVendorApproval, deletePortfolioVideo);
 
 export default router;

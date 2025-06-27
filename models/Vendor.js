@@ -113,6 +113,37 @@ const vendorSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Add the portfolio schema to the vendor model
+    portfolio: {
+      images: [
+        {
+          url: String,
+          title: {
+            type: String,
+            default: 'Portfolio Image'
+          },
+          description: String,
+          createdAt: {
+            type: Date,
+            default: Date.now
+          }
+        }
+      ],
+      videos: [
+        {
+          url: String,
+          title: {
+            type: String,
+            default: 'Portfolio Video'
+          },
+          description: String,
+          createdAt: {
+            type: Date,
+            default: Date.now
+          }
+        }
+      ]
+    },
   },
   { timestamps: true }
 );
