@@ -113,6 +113,15 @@ const vendorSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Reset Password OTP-related fields
+    resetPasswordOtp: {
+      type: String,
+      select: false,
+    },
+    resetPasswordOtpExpires: {
+      type: Date,
+      select: false,
+    },
     // Add the portfolio schema to the vendor model
     portfolio: {
       images: [

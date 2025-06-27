@@ -34,7 +34,8 @@ import {
   deletePortfolioImage,
   uploadPortfolioVideo,
   getPortfolioVideos,
-  deletePortfolioVideo
+  deletePortfolioVideo,
+  resendPasswordResetOtp
 } from '../controllers/vendorController.js';
 
 const router = express.Router();
@@ -83,6 +84,9 @@ router.post('/forgot-password', vendorForgotPassword);
 
 // Verify OTP for password reset
 router.post('/forgot_password_otp', verifyVendorResetOtp);
+
+// Resend password reset OTP
+router.post('/resend-forgot-password-otp', resendPasswordResetOtp);
 
 // Reset password
 router.post('/reset_password', resetVendorPassword);
