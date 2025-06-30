@@ -66,8 +66,27 @@ export const registerVendor = async (req, res) => {
       otpExpires,
       isVerified: false,
       termsAccepted: false,
-      profilePicture,
+      profilePicture
     });
+
+    // Handle serviceAreas and address separately to ensure proper parsing
+    if (req.body.serviceAreas) {
+      try {
+        newVendor.serviceAreas = JSON.parse(req.body.serviceAreas);
+      } catch (error) {
+        console.error('Error parsing serviceAreas:', error);
+        return res.status(400).json({ message: 'Invalid serviceAreas format' });
+      }
+    }
+
+    if (req.body.address) {
+      try {
+        newVendor.address = JSON.parse(req.body.address);
+      } catch (error) {
+        console.error('Error parsing address:', error);
+        return res.status(400).json({ message: 'Invalid address format' });
+      }
+    }
 
     await newVendor.save();
 

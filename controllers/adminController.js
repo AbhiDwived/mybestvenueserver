@@ -283,30 +283,9 @@ export const getAllVendors = async (req, res) => {
   try {
     const vendors = await Vendor.find({ isApproved: true });
 
-    // Group vendors by type and get the latest from each type
-    const vendorsByType = {};
-    vendors.forEach(vendor => {
-      if (!vendor.vendorType) return;
-      
-      if (!vendorsByType[vendor.vendorType]) {
-        vendorsByType[vendor.vendorType] = vendor;
-      } else {
-        // Compare createdAt dates to keep the latest vendor
-        const existingDate = new Date(vendorsByType[vendor.vendorType].createdAt);
-        const currentDate = new Date(vendor.createdAt);
-        
-        if (currentDate > existingDate) {
-          vendorsByType[vendor.vendorType] = vendor;
-        }
-      }
-    });
-
-    // Convert the grouped vendors object to an array
-    const latestVendors = Object.values(vendorsByType);
-
     // Get unique locations from both serviceAreas and addresses
     const uniqueLocations = new Set();
-    latestVendors.forEach(vendor => {
+    vendors.forEach(vendor => {
       if (vendor.serviceAreas && Array.isArray(vendor.serviceAreas)) {
         vendor.serviceAreas.forEach(area => uniqueLocations.add(area));
       }
@@ -315,7 +294,7 @@ export const getAllVendors = async (req, res) => {
       }
     });
 
-    const formattedVendors = latestVendors.map((vendor) => ({
+    const formattedVendors = vendors.map((vendor) => ({
       _id: vendor._id,
       businessName: vendor.businessName,
       vendorType: vendor.vendorType,
