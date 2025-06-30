@@ -283,20 +283,39 @@ export const getAllVendors = async (req, res) => {
   try {
     const vendors = await Vendor.find({ isApproved: true });
 
+    // Group vendors by type and get the latest from each type
+    const vendorsByType = {};
+    vendors.forEach(vendor => {
+      if (!vendor.vendorType) return;
+      
+      if (!vendorsByType[vendor.vendorType]) {
+        vendorsByType[vendor.vendorType] = vendor;
+      } else {
+        // Compare createdAt dates to keep the latest vendor
+        const existingDate = new Date(vendorsByType[vendor.vendorType].createdAt);
+        const currentDate = new Date(vendor.createdAt);
+        
+        if (currentDate > existingDate) {
+          vendorsByType[vendor.vendorType] = vendor;
+        }
+      }
+    });
+
+    // Convert the grouped vendors object to an array
+    const latestVendors = Object.values(vendorsByType);
+
     // Get unique locations from both serviceAreas and addresses
     const uniqueLocations = new Set();
-    vendors.forEach(vendor => {
-      // Add service areas
+    latestVendors.forEach(vendor => {
       if (vendor.serviceAreas && Array.isArray(vendor.serviceAreas)) {
         vendor.serviceAreas.forEach(area => uniqueLocations.add(area));
       }
-      // Add city from address if exists
       if (vendor.address?.city) {
         uniqueLocations.add(vendor.address.city);
       }
     });
 
-    const formattedVendors = vendors.map((vendor) => ({
+    const formattedVendors = latestVendors.map((vendor) => ({
       _id: vendor._id,
       businessName: vendor.businessName,
       vendorType: vendor.vendorType,
@@ -317,6 +336,7 @@ export const getAllVendors = async (req, res) => {
       galleryImages: vendor.galleryImages || [],
       isApproved: vendor.isApproved,
       appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
+      createdAt: vendor.createdAt // Adding createdAt for sorting
     }));
 
     res.status(200).json({
@@ -464,5 +484,59 @@ export const refreshToken = async (req, res) => {
   } catch (error) {
     console.error('Refresh token error:', error);
     res.status(500).json({ message: 'Error refreshing token', error: error.message });
+  }
+};
+
+export const getLatestVendorsByType = async (req, res) => {
+  try {
+    // Get all approved vendors
+    const vendors = await Vendor.find({ isApproved: true })
+      .sort({ createdAt: -1 }); // Sort by creation date descending
+
+    // Group vendors by type and get the latest from each type
+    const vendorsByType = {};
+    vendors.forEach(vendor => {
+      if (!vendor.vendorType) return;
+      
+      // Since we sorted by createdAt, the first vendor of each type will be the latest
+      if (!vendorsByType[vendor.vendorType]) {
+        vendorsByType[vendor.vendorType] = vendor;
+      }
+    });
+
+    // Convert the grouped vendors object to an array
+    const latestVendors = Object.values(vendorsByType);
+
+    // Format the vendors
+    const formattedVendors = latestVendors.map((vendor) => ({
+      _id: vendor._id,
+      businessName: vendor.businessName,
+      vendorType: vendor.vendorType,
+      email: vendor.email,
+      phone: vendor.phone,
+      address: {
+        city: vendor.address?.city || '',
+        state: vendor.address?.state || '',
+        country: vendor.address?.country || 'India'
+      },
+      serviceAreas: vendor.serviceAreas || [],
+      pricingRange: vendor.pricingRange ? {
+        min: vendor.pricingRange.min,
+        max: vendor.pricingRange.max,
+        currency: vendor.pricingRange.currency || 'INR'
+      } : null,
+      profilePicture: vendor.profilePicture,
+      galleryImages: vendor.galleryImages || [],
+      isApproved: vendor.isApproved,
+      appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
+      createdAt: vendor.createdAt
+    }));
+
+    res.status(200).json({
+      message: "Latest vendors by type fetched successfully",
+      vendors: formattedVendors
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching latest vendors", error: error.message });
   }
 };

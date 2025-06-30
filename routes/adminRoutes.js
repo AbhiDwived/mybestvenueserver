@@ -12,6 +12,7 @@ import {
   getAllUsers,
   deleteUserByAdmin,
   getVendorCountsByLocation,
+  getLatestVendorsByType,
   refreshToken
 } from '../controllers/adminController.js';
 
@@ -31,6 +32,7 @@ router.post('/resend_admin_otp', resendAdminOtp);
 router.put('/update/:adminId', VerifyAdmin, updateAdminProfile);
 
 router.get('/all_vendors', getAllVendors);
+router.get('/latest_vendors_by_type', getLatestVendorsByType);
 router.get('/pending_vendor', VerifyAdmin, getPendingVendors);
 router.put('/approve/:vendorId', VerifyAdmin, approveVendor);
 router.delete('/delete-vendor/:vendorId', VerifyAdmin, deleteVendorByAdmin);

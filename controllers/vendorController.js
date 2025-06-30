@@ -1124,7 +1124,7 @@ export const uploadPortfolioVideo = async (req, res) => {
         message: 'Video URL or file is required'
       });
     }
-
+    
     // Find the vendor
     const vendor = await Vendor.findById(vendorId);
     
