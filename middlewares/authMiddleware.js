@@ -158,3 +158,8 @@ export const CheckVendorApproval = async (req, res, next) => {
   }
 };
 
+// Check that this function is properly exported
+export const protect = async (req, res, next) => {
+  // Implementation...
+};
+

@@ -1,4 +1,5 @@
 import Activity from "../models/Activity.js"
+import { logger } from "./logger.js"
 
 // Utility functions for common activity logging scenarios
 
@@ -45,11 +46,11 @@ export const logActivity = async ({
 
     const activity = new Activity(activityData)
     await activity.save()
-
-    console.log(`✅ Activity logged: ${type} by ${actor.name}`)
+    
+    logger.debug(`Activity logged: ${type} by ${actor.name}`)
     return activity
   } catch (error) {
-    console.error("❌ Failed to log activity:", error)
+    logger.error("Failed to log activity:", error)
     // Don't throw error to prevent breaking main functionality
     return null
   }
@@ -525,10 +526,10 @@ export const logBatchActivities = async (activities) => {
   try {
     const activityDocs = activities.map((activity) => new Activity(activity))
     await Activity.insertMany(activityDocs)
-    console.log(`✅ Batch logged ${activities.length} activities`)
+    logger.debug(`✅ Batch logged ${activities.length} activities`)
     return activityDocs
   } catch (error) {
-    console.error("❌ Failed to batch log activities:", error)
+    logger.error("❌ Failed to batch log activities:", error)
     return null
   }
 }
@@ -544,10 +545,10 @@ export const cleanOldActivities = async (daysToKeep = 90) => {
       severity: { $in: ["low", "medium"] }, // Keep high and critical activities
     })
 
-    console.log(`🧹 Cleaned ${result.deletedCount} old activities`)
+    logger.debug(`🧹 Cleaned ${result.deletedCount} old activities`)
     return result.deletedCount
   } catch (error) {
-    console.error("❌ Failed to clean old activities:", error)
+    logger.error("❌ Failed to clean old activities:", error)
     return 0
   }
 }

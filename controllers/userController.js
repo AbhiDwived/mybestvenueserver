@@ -9,6 +9,7 @@ import Contact from "../models/Contact.js";
 import ImageKit from "imagekit";
 import { logUserLogin } from '../utils/activityLogger.js';
 import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddleware.js';
+import { logger } from '../utils/logger.js';
 
 dotenv.config();
 
@@ -167,6 +168,12 @@ export const verifyOtp = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
+
+    // Add this after generating new tokens:
+    // Save the new refresh token to a DB/store with the user ID
+    await User.findByIdAndUpdate(user._id, { 
+      refreshToken: tokens.refreshToken 
+    });
 
     res.status(200).json({
       message: "Registration completed successfully",
@@ -874,6 +881,12 @@ export const refreshToken = async (req, res) => {
     // Generate new tokens
     const tokens = generateTokens({ id: user._id, email: user.email, role: user.role });
 
+    // Add this after generating new tokens:
+    // Save the new refresh token to a DB/store with the user ID
+    await User.findByIdAndUpdate(user._id, { 
+      refreshToken: tokens.refreshToken 
+    });
+
     res.status(200).json({
       message: 'Token refreshed successfully',
       token: tokens.accessToken,
@@ -891,7 +904,7 @@ export const refreshToken = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Refresh token error:', error);
+    logger.error('Refresh token error:', error);
     res.status(500).json({ message: 'Error refreshing token', error: error.message });
   }
 };

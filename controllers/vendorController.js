@@ -1271,3 +1271,36 @@ export const deletePortfolioVideo = async (req, res) => {
 };
 
 
+export const getlatestVendorTypeData = async (req, res) => {
+  try {
+    const data = await Vendor.aggregate([
+      
+      { $sort: { createdAt: -1 } },
+
+     
+      {
+        $group: {
+          _id: "$vendorType",
+          latestRecord: { $first: "$$ROOT" }
+        }
+      },
+
+     
+      {
+        $replaceRoot: { newRoot: "$latestRecord" }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    console.error('Error fetching latest vendorType data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+};

@@ -33,6 +33,7 @@ import { VerifyUser } from "../middlewares/authMiddleware.js";
 import { validate, userValidation, contactValidation } from '../middlewares/validation.js';
 import { verifyToken } from "../middlewares/authMiddleware.js";
 import { verifyRole } from "../middlewares/roleMiddleware.js";
+import { protect } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
@@ -102,5 +103,15 @@ router.post("/refresh-token", refreshToken);
 
 // Get user profile by ID (protected route, only for vendors and admins)
 router.get("/profile/:userId", getUserProfileById);
+
+// Add this route to test token expiry
+router.get("/check-token", protect, (req, res) => {
+  res.status(200).json({ 
+    message: "Token is valid", 
+    user: req.user,
+    tokenExpiry: req.user.exp,
+    currentTime: Math.floor(Date.now() / 1000)
+  });
+});
 
 export default router;
