@@ -40,12 +40,19 @@ const vendorSchema = new mongoose.Schema(
       enum: ['Active', 'InActive'],
     },
     address: {
+      city: {
+        type: String,
+        required: [true, 'City is required'],
+      },
+      state: {
+        type: String,
+        required: [true, 'State is required'],
+      },
       street: String,
-      city: String,
-      state: String,
       country: String,
       zipCode: String,
     },
+    services: [String],
     serviceAreas: [String],
     description: String,
     yearsInBusiness: Number,

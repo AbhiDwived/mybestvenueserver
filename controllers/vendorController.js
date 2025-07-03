@@ -81,10 +81,19 @@ export const registerVendor = async (req, res) => {
 
     if (req.body.address) {
       try {
-        newVendor.address = JSON.parse(req.body.address);
+        const addressData = typeof req.body.address === 'string' ? JSON.parse(req.body.address) : req.body.address;
+        
+        // Ensure the address object has the required fields
+        newVendor.address = {
+          city: addressData.city || 'Not Specified',
+          state: addressData.state || 'Not Specified',
+          street: addressData.street || '',
+          country: addressData.country || 'India',
+          zipCode: addressData.zipCode || ''
+        };
       } catch (error) {
         console.error('Error parsing address:', error);
-        return res.status(400).json({ message: 'Invalid address format' });
+        return res.status(400).json({ message: 'Invalid address format. Expected format: { city: string, state: string }' });
       }
     }
 

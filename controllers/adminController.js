@@ -300,11 +300,13 @@ export const getAllVendors = async (req, res) => {
       vendorType: vendor.vendorType,
       email: vendor.email,
       phone: vendor.phone,
-      address: {
-        city: vendor.address?.city || '',
-        state: vendor.address?.state || '',
-        country: vendor.address?.country || 'India'
-      },
+      // address: {
+      //   city: vendor.address?.city || '',
+      //   state: vendor.address?.state || '',
+      //   country: vendor.address?.country || 'India'
+      // },
+      address:vendor.address || {},
+      services: vendor.services || [],
       serviceAreas: vendor.serviceAreas || [],
       pricingRange: vendor.pricingRange ? {
         min: vendor.pricingRange.min,
@@ -327,6 +329,7 @@ export const getAllVendors = async (req, res) => {
     res.status(500).json({ message: "Error fetching vendors", error: error.message });
   }
 };
+
 
 export const deleteVendorByAdmin = async (req, res) => {
   const { vendorId } = req.params;
