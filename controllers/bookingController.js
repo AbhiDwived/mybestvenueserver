@@ -303,7 +303,7 @@ export const getAvailableVendors = async (req, res) => {
 
 // Vendor  booking List 
 export const getVendorBookings = async (req, res) => {
-  console.log(" start section ")
+  // console.log(" start section ")
   try {
    const vendorId = req.params.vendorId;
 

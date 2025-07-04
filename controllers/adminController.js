@@ -330,7 +330,6 @@ export const getAllVendors = async (req, res) => {
   }
 };
 
-
 export const deleteVendorByAdmin = async (req, res) => {
   const { vendorId } = req.params;
 

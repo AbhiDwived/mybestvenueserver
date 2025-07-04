@@ -1313,3 +1313,6 @@ export const getlatestVendorTypeData = async (req, res) => {
     });
   }
 };
+
+
+
