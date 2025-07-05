@@ -279,6 +279,8 @@ export const getPendingVendors = async (req, res) => {
   }
 };
 
+
+
 export const getAllVendors = async (req, res) => {
   try {
     const vendors = await Vendor.find({ isApproved: true });
@@ -308,6 +310,7 @@ export const getAllVendors = async (req, res) => {
       address:vendor.address || {},
       services: vendor.services || [],
       serviceAreas: vendor.serviceAreas || [],
+      pricing: vendor.pricing || [],
       pricingRange: vendor.pricingRange ? {
         min: vendor.pricingRange.min,
         max: vendor.pricingRange.max,
