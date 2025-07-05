@@ -22,6 +22,7 @@ import savedVendorRoutes from './routes/savedVendorRoutes.js';
 import guestRoutes from './routes/guestRoutes.js';
 import subscriberRoutes from './routes/subscriberRoutes.js';
 import sitemapRoutes from './routes/sitemapRoutes.js';
+import eventRoutes from './routes/eventRoutes.js';
 import timeout from 'connect-timeout';
 import compression from 'compression';
 import morgan from 'morgan';
@@ -218,6 +219,7 @@ app.use('/api/v1/checklist', checklistRoutes);
 app.use('/api/v1/saved-vendors', savedVendorRoutes);
 app.use('/api/v1/guest', guestRoutes);
 app.use('/api/v1/subscriber', subscriberRoutes);
+app.use('/api/v1/events', eventRoutes);
 
 // Error Handling Middleware (should be last)
 app.use(errorHandler);

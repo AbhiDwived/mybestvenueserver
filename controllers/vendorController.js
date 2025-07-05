@@ -446,7 +446,32 @@ export const updateVendorProfile = async (req, res) => {
   try {
     const vendorId = req.params.id;
     const updateData = req.body;
+ // ✅ Clean up any tab characters in keys (from Postman or frontend)
+    for (const key in req.body) {
+      const cleanKey = key.replace(/\t/g, '');
+      if (cleanKey !== key) {
+        req.body[cleanKey] = req.body[key];
+        delete req.body[key];
+      }
+    }
 
+     // ✅ Extract pricing data from form fields like pricing[0][type]
+    const pricing = [];
+    let i = 0;
+    while (req.body[`pricing[${i}][type]`] !== undefined) {
+      pricing.push({
+        type: req.body[`pricing[${i}][type]`],
+        price: parseFloat(req.body[`pricing[${i}][price]`] || '0'),
+        currency: req.body[`pricing[${i}][currency]`] || 'INR',
+        unit: req.body[`pricing[${i}][unit]`] || 'per person',
+      });
+      i++;
+    }
+
+    // ✅ Only set pricing if valid entries exist
+    if (pricing.length > 0) {
+      updateData.pricing = pricing;
+    }
     // Find the vendor first
     const vendor = await Vendor.findById(vendorId);
     if (!vendor) {
@@ -469,6 +494,7 @@ export const updateVendorProfile = async (req, res) => {
     await logVendorProfileUpdate(vendor, updateData, req);
 
     // Return the complete updated vendor object
+    console.log("update vendor",updateData)
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',

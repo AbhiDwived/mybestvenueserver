@@ -57,14 +57,28 @@ const vendorSchema = new mongoose.Schema(
     description: String,
     yearsInBusiness: Number,
     licenses: [String],
-    pricingRange: {
-      min: Number,
-      max: Number,
-      currency: {
-        type: String,
-        default: 'INR',
+    pricing: [
+      {
+        type: {
+          type: String,
+          required: true,
+
+        },
+        price: {
+          type: Number,
+          required: true,
+        },
+        currency: {
+          type: String,
+          default: 'INR',
+        },
+        unit: {
+          type: String,
+          default: 'per person'
+        }
       },
-    },
+    ],
+
     websiteURL: String,
     socialMediaLinks: {
       facebook: String,
@@ -165,7 +179,7 @@ const vendorSchema = new mongoose.Schema(
 );
 
 // Remove duplicate profilePicture field
-vendorSchema.pre('save', function(next) {
+vendorSchema.pre('save', function (next) {
   if (this.isModified('profilePicture') && this.profilePicture && this.profilePicture.startsWith('http')) {
     // If the profile picture is a URL (from ImageKit), ensure it's properly formatted
     this.profilePicture = this.profilePicture.trim();
