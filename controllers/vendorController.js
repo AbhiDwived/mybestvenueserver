@@ -472,6 +472,11 @@ export const updateVendorProfile = async (req, res) => {
     if (pricing.length > 0) {
       updateData.pricing = pricing;
     }
+
+    // ✅ Handle address as simple string
+    if (req.body.address !== undefined) {
+      updateData.address = req.body.address;
+    }
     // Find the vendor first
     const vendor = await Vendor.findById(vendorId);
     if (!vendor) {

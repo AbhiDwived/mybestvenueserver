@@ -40,17 +40,8 @@ const vendorSchema = new mongoose.Schema(
       enum: ['Active', 'InActive'],
     },
     address: {
-      city: {
-        type: String,
-        required: [true, 'City is required'],
-      },
-      state: {
-        type: String,
-        required: [true, 'State is required'],
-      },
-      street: String,
-      country: String,
-      zipCode: String,
+      type: String,
+      default: 'New Delhi, India',
     },
     services: [String],
     serviceAreas: [String],

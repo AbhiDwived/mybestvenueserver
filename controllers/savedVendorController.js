@@ -11,7 +11,7 @@ export const getSavedVendors = async (req, res) => {
     const savedVendors = await SavedVendor.find({ user: userId })
       .populate({
         path: 'vendor',
-        select: 'businessName category location email profilePhoto averageRating reviewCount priceRange'
+        select: 'businessName vendorType description serviceAreas address profilePicture galleryImages services pricingRange priceVeg priceNonVeg email phone contactName averageRating reviewCount'
       })
       .sort({ createdAt: -1 });
 
@@ -19,15 +19,24 @@ export const getSavedVendors = async (req, res) => {
     const formattedVendors = savedVendors.map(saved => {
       const vendor = saved.vendor;
       return vendor ? {
-        id: vendor._id,
+        id: vendor._id.toString(),
         name: vendor.businessName,
-        category: vendor.category || 'Vendor',
-        location: vendor.location || 'Location not specified',
+        category: vendor.vendorType || vendor.category || 'Vendor',
+        location: vendor.serviceAreas?.length > 0
+          ? vendor.serviceAreas[0]
+          : vendor.address?.city && vendor.address?.state
+            ? `${vendor.address.city}, ${vendor.address.state}`
+            : vendor.address?.city || vendor.address?.state || 'Location not specified',
         contactEmail: vendor.email,
-        featuredImage: vendor.profilePhoto || 'https://via.placeholder.com/300x200?text=No+Image',
-        rating: vendor.averageRating || 0,
+        featuredImage: vendor.profilePicture || vendor.galleryImages?.[0]?.url || 'https://via.placeholder.com/300x200?text=No+Image',
+        rating: vendor.averageRating || 4.5,
         reviewCount: vendor.reviewCount || 0,
-        priceRange: vendor.priceRange || '₹₹',
+        priceRange: vendor.pricingRange || '₹₹',
+        priceVeg: vendor.priceVeg || '999',
+        priceNonVeg: vendor.priceNonVeg || '1,200',
+        services: vendor.services || [],
+        address: vendor.address || {},
+        serviceAreas: vendor.serviceAreas || [],
         savedAt: saved.createdAt,
       } : null;
     }).filter(Boolean); // Remove null entries if any vendor was deleted
