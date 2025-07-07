@@ -4,10 +4,11 @@ import {
   createInquiry,
   createAnonymousInquiry,
   getVendorInquiries,
-  replyToInquiry
+  replyToInquiry,
+  getAnonymousInquiries
 } from '../controllers/inquiryController.js';
 import { verifyToken } from '../middlewares/authMiddleware.js';
-import { checkRole } from '../middlewares/roleMiddleware.js';
+import { verifyRole } from '../middlewares/roleMiddleware.js';
 
 const router = express.Router();
 
@@ -18,9 +19,12 @@ router.post('/', verifyToken, validate(inquiryValidation.create), createInquiry)
 router.post('/anonymous', createAnonymousInquiry);
 
 // Get vendor inquiries (vendor only)
-router.get('/vendor/:vendorId', verifyToken, checkRole(['vendor']), getVendorInquiries);
+router.get('/vendor/:vendorId', verifyToken, verifyRole(['vendor']), getVendorInquiries);
 
 // Reply to inquiry (vendor only)
-router.post('/reply', verifyToken, checkRole(['vendor']), replyToInquiry);
+router.post('/reply', verifyToken, verifyRole(['vendor']), replyToInquiry);
+
+// Get all anonymous inquiries for a vendor
+router.get('/anonymous/:vendorId', verifyToken, verifyRole(['vendor']), getAnonymousInquiries);
 
 export default router;

@@ -47,7 +47,7 @@ export const createInquiry = async (req, res) => {
 // Create anonymous inquiry (no login required)
 export const createAnonymousInquiry = async (req, res) => {
   try {
-    const { vendorId, name, email, phone, weddingDate, message } = req.body;
+    const { vendorId, name, email, phone, eventDate, message } = req.body;
 
     // Validate required fields
     if (!vendorId || !name || !email || !phone || !message) {
@@ -70,7 +70,7 @@ export const createAnonymousInquiry = async (req, res) => {
       name,
       email,
       phone,
-      weddingDate,
+      eventDate,
       message
     });
 
@@ -181,5 +181,29 @@ export const replyToInquiry = async (req, res) => {
       message: 'Failed to send reply',
       error: error.message
     });
+  }
+};
+
+// Get all anonymous inquiries for a vendor
+export const getAnonymousInquiries = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    let anonymousInquiries = await AnonymousInquiry.find({ vendorId }).sort({ createdAt: -1 });
+
+    // Fallback: If eventDate is missing, use weddingDate
+    anonymousInquiries = anonymousInquiries.map(inq => {
+      // If eventDate is missing but weddingDate exists, use weddingDate
+      if ((!inq.eventDate || inq.eventDate === '' || inq.eventDate === '07/07/2025') && inq.weddingDate) {
+        return {
+          ...inq.toObject(),
+          eventDate: inq.weddingDate,
+        };
+      }
+      return inq.toObject();
+    });
+
+    res.status(200).json({ success: true, data: anonymousInquiries });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to fetch anonymous inquiries', error: error.message });
   }
 };

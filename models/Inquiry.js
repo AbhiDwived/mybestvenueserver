@@ -12,9 +12,8 @@ const Inquiry = new mongoose.Schema({
         ref: "User",
         required: true
     },
-    weddingDate: {
+    eventDate: {
         type: String,
-
         default: () => moment().format('DD/MM/YYYY'),
         match: [/^\d{2}\/\d{2}\/\d{4}$/, 'Please enter date in DD/MM/YYYY format']
     },
