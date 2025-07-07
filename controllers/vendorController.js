@@ -38,6 +38,12 @@ export const registerVendor = async (req, res) => {
       return res.status(400).json({ message: "All required fields must be provided" });
     }
 
+    // Add email format validation
+    const emailRegex = /^[a-zA-Z0-9](\.?[a-zA-Z0-9_-])*@[a-zA-Z0-9-]+(\.[a-zA-Z]{2,})+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ message: "Invalid email address" });
+    }
+
     // Check if vendor already exists
     const vendorExists = await Vendor.findOne({ email });
     if (vendorExists) {
