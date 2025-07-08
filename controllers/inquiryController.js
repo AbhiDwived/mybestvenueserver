@@ -95,12 +95,12 @@ export const createAnonymousInquiry = async (req, res) => {
 export const getVendorInquiries = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    
+    console.log('Fetching inquiries for vendorId:', vendorId);
     // Get logged-in user inquiries
-    const userInquiries = await Inquiry.find({ vendorId })
-      .populate('userId', 'name email phone')
+    const userInquiries = await Inquiry.find({ vendorId: vendorId })
+      .populate({ path: 'userId', select: 'name email phone' })
       .sort({ createdAt: -1 });
-
+    console.log('Fetched userInquiries:', userInquiries);
     // Get anonymous inquiries
     const anonymousInquiries = await AnonymousInquiry.find({ vendorId })
       .sort({ createdAt: -1 });
