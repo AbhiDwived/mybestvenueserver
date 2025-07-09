@@ -9,27 +9,46 @@ export const userValidation = {
       'string.min': 'Name must be at least 3 characters long',
       'string.max': 'Name cannot exceed 50 characters'
     }),
-    email: Joi.string().required().email().messages({
+    email: Joi.string().required().email({
+      minDomainSegments: 2,
+      tlds: { allow: ['com', 'net', 'org', 'edu', 'in'] }
+    }).messages({
       'string.empty': 'Email is required',
-      'string.email': 'Please enter a valid email'
+      'string.email': 'Please enter a valid email address',
+      'string.minDomainSegments': 'Email domain is invalid'
     }),
-    phone: Joi.string().required().pattern(/^[0-9]{10}$/).messages({
+    phone: Joi.string().required().pattern(/^[6-9]\d{9}$/).messages({
       'string.empty': 'Phone number is required',
-      'string.pattern.base': 'Phone number must be 10 digits'
+      'string.pattern.base': 'Please enter a valid Indian mobile number'
     }),
-    password: Joi.string().required().min(6).messages({
-      'string.empty': 'Password is required',
-      'string.min': 'Password must be at least 6 characters long'
-    })
+    password: Joi.string().required()
+      .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/)
+      .messages({
+        'string.empty': 'Password is required',
+        'string.pattern.base': 'Password must:\n- Be 8-20 characters long\n- Include at least 1 uppercase letter\n- Include at least 1 lowercase letter\n- Include at least 1 number\n- Include at least 1 special character (@$!%*?&)'
+      }),
+    confirmPassword: Joi.string().valid(Joi.ref('password')).messages({
+      'any.only': 'Passwords do not match'
+    }),
+    termsAccepted: Joi.boolean().valid(true).required().messages({
+      'any.only': 'You must agree to the terms and conditions'
+    }),
+    profilePhoto: Joi.string().uri().allow('')
   }),
   login: Joi.object({
-    email: Joi.string().required().email().messages({
+    email: Joi.string().required().email({
+      minDomainSegments: 2,
+      tlds: { allow: ['com', 'net', 'org', 'edu', 'in'] }
+    }).messages({
       'string.empty': 'Email is required',
-      'string.email': 'Please enter a valid email'
+      'string.email': 'Please enter a valid email address'
     }),
-    password: Joi.string().required().messages({
-      'string.empty': 'Password is required'
-    })
+    password: Joi.string().required()
+      .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/)
+      .messages({
+        'string.empty': 'Password is required',
+        'string.pattern.base': 'Password must:\n- Be 8-20 characters long\n- Include at least 1 uppercase letter\n- Include at least 1 lowercase letter\n- Include at least 1 number\n- Include at least 1 special character (@$!%*?&)'
+      })
   }),
   updateProfile: Joi.object({
     name: Joi.string().required().min(3).max(50),

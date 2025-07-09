@@ -169,12 +169,6 @@ export const verifyOtp = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    // Add this after generating new tokens:
-    // Save the new refresh token to a DB/store with the user ID
-    await User.findByIdAndUpdate(user._id, { 
-      refreshToken: tokens.refreshToken 
-    });
-
     res.status(200).json({
       message: "Registration completed successfully",
       token,
@@ -193,10 +187,21 @@ export const verifyOtp = async (req, res) => {
 
     console.log("--- VERIFY OTP DEBUG END ---\n");
   } catch (error) {
-    console.error("🚨 Error verifying OTP:", error.message);
+    console.error("🚨 Error verifying OTP:", error);
+    console.error("Error Name:", error.name);
+    console.error("Error Message:", error.message);
+    console.error("Error Stack:", error.stack);
+    
     res
       .status(500)
-      .json({ message: "Error verifying OTP", error: error.message });
+      .json({ 
+        message: "Error verifying OTP", 
+        error: error.message,
+        details: {
+          name: error.name,
+          stack: error.stack
+        }
+      });
   }
 };
 
