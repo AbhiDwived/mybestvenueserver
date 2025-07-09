@@ -103,6 +103,7 @@ export const VerifyUser = (req, res, next) => {
 // Add this for vendor verification
 export const VerifyVendor = (req, res, next) => {
   const authHeader = req.headers.authorization;
+  console.log('Authorization header:', authHeader); // Debug log
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Authorization token missing or malformed' });
   }
@@ -111,12 +112,14 @@ export const VerifyVendor = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Decoded token:', decoded); // Debug log
     if (decoded.role !== 'vendor') {
       return res.status(403).json({ message: 'Access denied: Not a vendor' });
     }
     req.user = decoded;
     next();
   } catch (err) {
+    console.log('JWT verification error:', err); // Debug log
     return res.status(401).json({ message: 'Token is invalid or expired' });
   }
 };
