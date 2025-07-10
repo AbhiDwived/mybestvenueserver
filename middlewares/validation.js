@@ -24,7 +24,7 @@ export const userValidation = {
     password: Joi.string().required()
       .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/)
       .messages({
-        'string.empty': 'Password is required',
+      'string.empty': 'Password is required',
         'string.pattern.base': 'Password must:\n- Be 8-20 characters long\n- Include at least 1 uppercase letter\n- Include at least 1 lowercase letter\n- Include at least 1 number\n- Include at least 1 special character (@$!%*?&)'
       }),
     confirmPassword: Joi.string().valid(Joi.ref('password')).messages({
@@ -48,7 +48,7 @@ export const userValidation = {
       .messages({
         'string.empty': 'Password is required',
         'string.pattern.base': 'Password must:\n- Be 8-20 characters long\n- Include at least 1 uppercase letter\n- Include at least 1 lowercase letter\n- Include at least 1 number\n- Include at least 1 special character (@$!%*?&)'
-      })
+    })
   }),
   updateProfile: Joi.object({
     name: Joi.string().required().min(3).max(50),
