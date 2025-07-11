@@ -185,19 +185,44 @@ export const verifyVendorOtp = async (req, res) => {
 
 // Resend vendor OTP
 export const resendVendorOtp = async (req, res) => {
-  const { vendorId } = req.body;
   try {
-    const vendor = await Vendor.findById(vendorId);
-    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
-    if (vendor.isVerified) return res.status(400).json({ message: 'Vendor already verified' });
+    // Extract vendorId, handling different input types
+    const vendorId = req.body.vendorId || req.body.id;
+    
+    // Validate vendorId
+    if (!vendorId) {
+      return res.status(400).json({ message: 'Vendor ID is required' });
+    }
 
+    // Find vendor by ID with multiple fallback methods
+    let vendor;
+    try {
+      // Try converting to ObjectId first
+      vendor = await Vendor.findById(new mongoose.Types.ObjectId(vendorId));
+    } catch (idError) {
+      // If ObjectId conversion fails, try finding by string ID
+      console.warn('ObjectId conversion failed, trying string search:', idError.message);
+      vendor = await Vendor.findOne({ _id: vendorId });
+    }
+    
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
+    }
+
+    if (vendor.isVerified) {
+      return res.status(400).json({ message: 'Vendor already verified' });
+    }
+
+    // Generate new OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000;
 
+    // Update vendor with new OTP
     vendor.otp = otp;
     vendor.otpExpires = otpExpires;
     await vendor.save();
 
+    // Send OTP via email
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -209,24 +234,27 @@ export const resendVendorOtp = async (req, res) => {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: vendor.email,
-      subject: 'Your New Vendor OTP',
+      subject: 'Your New OTP for Vendor Verification',
       text: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
     };
 
     transporter.sendMail(mailOptions, (error) => {
       if (error) {
         console.error('Error sending email:', error);
-        return res.status(500).json({ message: 'Error sending OTP email' });
       }
     });
 
     res.status(200).json({
-      message: 'New OTP sent to email.',
+      message: 'New OTP sent successfully',
       vendorId: vendor._id,
     });
 
   } catch (error) {
-    res.status(500).json({ message: 'Error resending OTP', error: error.message });
+    console.error('Error resending OTP:', error);
+    res.status(500).json({ 
+      message: 'Error resending OTP', 
+      error: error.message 
+    });
   }
 };
 
