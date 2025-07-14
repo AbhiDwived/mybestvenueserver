@@ -1379,5 +1379,24 @@ export const getlatestVendorTypeData = async (req, res) => {
   }
 };
 
+// Delete Pricing list value 
+export const deletePricingList= async (req, res) => {
+  const { vendorId, pricingId } = req.params;
+
+  try {
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+
+    // Filter out the pricing item
+    vendor.pricing = vendor.pricing.filter(item => item._id.toString() !== pricingId);
+
+    await vendor.save();
+
+    res.status(200).json({ message: 'Pricing item deleted', vendor });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
 
