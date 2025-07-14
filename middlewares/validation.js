@@ -1,5 +1,13 @@
 // Validation middleware
 import Joi from 'joi';
+import mongoose from 'mongoose';
+
+const objectId = Joi.string().custom((value, helpers) => {
+  if (!mongoose.Types.ObjectId.isValid(value)) {
+    return helpers.error('any.invalid');
+  }
+  return value;
+}, 'ObjectId Validation');
 
 // User validation schemas
 export const userValidation = {
@@ -174,8 +182,13 @@ export const vendorValidation = {
 // Booking validation schemas
 export const bookingValidation = {
   create: Joi.object({
-    vendorId: Joi.string().required().messages({
-      'string.empty': 'Vendor ID is required'
+    user: objectId.required().messages({
+      'any.invalid': 'User reference must be a valid ObjectId',
+      'any.required': 'User reference is required'
+    }),
+    vendor: objectId.required().messages({
+      'any.invalid': 'Vendor reference must be a valid ObjectId',
+      'any.required': 'Vendor reference is required'
     }),
     vendorName: Joi.string().required().messages({
       'string.empty': 'Vendor name is required'
@@ -187,45 +200,64 @@ export const bookingValidation = {
       'date.base': 'Please provide a valid event date',
       'any.required': 'Event date is required'
     }),
-    eventTime: Joi.string(),
-    venue: Joi.string(),
-    guestCount: Joi.number().integer().min(0),
+    eventTime: Joi.string().allow(''),
+    venue: Joi.string().allow(''),
+    guestCount: Joi.number().integer().min(0).messages({
+      'number.base': 'Guest count must be a number',
+      'number.min': 'Guest count cannot be negative'
+    }),
     plannedAmount: Joi.number().required().min(0).messages({
       'number.base': 'Planned amount must be a number',
-      'number.min': 'Planned amount cannot be negative'
+      'number.min': 'Planned amount cannot be negative',
+      'any.required': 'Planned amount is required'
     }),
-    spentAmount: Joi.number().min(0),
-    status: Joi.string().valid('pending', 'confirmed', 'completed', 'cancelled'),
-    notes: Joi.string()
+    spentAmount: Joi.number().min(0).messages({
+      'number.base': 'Spent amount must be a number',
+      'number.min': 'Spent amount cannot be negative'
+    }),
+    status: Joi.string().valid('pending', 'confirmed', 'completed', 'cancelled').default('pending'),
+    notes: Joi.string().allow('')
   })
 };
 
 // Inquiry validation schemas
 export const inquiryValidation = {
   create: Joi.object({
-    vendorId: Joi.string().required().messages({
-      'string.empty': 'Vendor ID is required'
+    vendorId: objectId.required().messages({
+      'any.invalid': 'Vendor ID must be a valid ObjectId',
+      'any.required': 'Vendor ID is required'
     }),
-    weddingDate: Joi.string().pattern(/^\d{2}\/\d{2}\/\d{4}$/).messages({
-      'string.pattern.base': 'Wedding date must be in DD/MM/YYYY format'
+    userId: objectId.required().messages({
+      'any.invalid': 'User ID must be a valid ObjectId',
+      'any.required': 'User ID is required'
     }),
+    eventDate: Joi.string()
+      .pattern(/^\d{2}\/\d{2}\/\d{4}$/)
+      .messages({
+        'string.pattern.base': 'Event date must be in DD/MM/YYYY format'
+      }),
     userMessage: Joi.array().items(
       Joi.object({
-        message: Joi.string().required().min(10).max(1000).messages({
+        message: Joi.string().min(1).max(1000).required().messages({
           'string.empty': 'Message is required',
-          'string.min': 'Message must be at least 10 characters long',
+          'string.min': 'Message must be at least 1 character',
           'string.max': 'Message cannot exceed 1000 characters'
         }),
         vendorReply: Joi.object({
-          message: Joi.string(),
+          message: Joi.string().allow(''),
           createdAt: Joi.date(),
           updatedAt: Joi.date()
-        }),
-        date: Joi.date(),
-        time: Joi.string()
+        }).optional(),
+        date: Joi.date().optional(),
+        time: Joi.string().allow('').optional(),
+        createdAt: Joi.date().optional(),
+        updatedAt: Joi.date().optional()
       })
-    ),
-    replyStatus: Joi.string().valid('Pending', 'Replied')
+    ).min(1).required().messages({
+      'array.base': 'userMessage must be an array',
+      'array.min': 'At least one user message is required'
+    }),
+    replyStatus: Joi.string().valid('Pending', 'Replied').default('Pending')
   })
 };
 
