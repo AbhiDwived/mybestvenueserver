@@ -36,7 +36,8 @@ import {
   getPortfolioVideos,
   deletePortfolioVideo,
   resendPasswordResetOtp,
-  getlatestVendorTypeData
+  getlatestVendorTypeData,
+  deletePricingList
 } from '../controllers/vendorController.js';
 
 const router = express.Router();
@@ -174,5 +175,10 @@ router.delete('/portfolio/video/:videoId', VerifyVendor, CheckVendorApproval, de
 
 // get latest vendorType record
 router.get('/getlatestvendorType',getlatestVendorTypeData );
+
+
+// get latest vendorType record
+router.get('/getlatestvendorType',getlatestVendorTypeData );
+router.delete("/:vendorId/pricing/:pricingId",VerifyVendor,deletePricingList);
 
 export default router;
