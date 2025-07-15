@@ -1,5 +1,6 @@
 import Review from '../models/Review.js';
 import Booking from '../models/Booking.js';
+import mongoose from 'mongoose';
 
 // Create a review
 export const createReview = async (req, res) => {
@@ -81,6 +82,38 @@ export const deleteReview = async (req, res) => {
     }
     await review.deleteOne();
     res.json({ message: 'Review deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get review stats for multiple vendors
+export const getVendorsReviewStats = async (req, res) => {
+  try {
+    const vendorIds = req.query.vendorIds?.split(',') || [];
+    if (!vendorIds.length) return res.status(400).json({ message: 'No vendorIds provided' });
+    // Aggregate average rating and count for each vendor
+    const stats = await Review.aggregate([
+      { $match: { vendor: { $in: vendorIds.map(id => (typeof id === 'string' ? new mongoose.Types.ObjectId(id) : id)) } } },
+      { $group: {
+        _id: '$vendor',
+        avgRating: { $avg: '$rating' },
+        reviewCount: { $sum: 1 }
+      } }
+    ]);
+    // Map to vendorId keys
+    const result = {};
+    stats.forEach(s => {
+      result[s._id.toString()] = {
+        avgRating: s.avgRating ? Number(s.avgRating.toFixed(1)) : 0,
+        reviewCount: s.reviewCount
+      };
+    });
+    // Fill missing vendors with 0s
+    vendorIds.forEach(id => {
+      if (!result[id]) result[id] = { avgRating: 0, reviewCount: 0 };
+    });
+    res.json({ stats: result });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

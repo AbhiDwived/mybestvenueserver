@@ -1,11 +1,12 @@
 import express from 'express';
-import { createReview, getVendorReviews, updateReview, deleteReview } from '../controllers/reviewController.js';
+import { createReview, getVendorReviews, updateReview, deleteReview, getVendorsReviewStats } from '../controllers/reviewController.js';
 import { verifyToken } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
 router.post('/', verifyToken, createReview);
 router.get('/vendor/:vendorId', getVendorReviews);
+router.get('/stats', getVendorsReviewStats);
 router.put('/:reviewId', verifyToken, updateReview);
 router.delete('/:reviewId', verifyToken, deleteReview);
 
