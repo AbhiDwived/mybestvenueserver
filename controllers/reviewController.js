@@ -37,7 +37,7 @@ export const getVendorReviews = async (req, res) => {
   try {
     const { vendorId } = req.params;
     const reviews = await Review.find({ vendor: vendorId, status: 'approved' })
-      .populate('user', 'name')
+      .populate('user', 'name profilePhoto')
       .sort({ createdAt: -1 });
     res.json({ reviews });
   } catch (err) {

@@ -277,7 +277,7 @@ export const contactValidation = {
       'string.empty': 'Phone number is required',
       'string.pattern.base': 'Phone number must be 10 digits'
     }),
-    message: Joi.string().required().min(10).max(1000).messages({
+    message: Joi.string().required().min(1).max(1000).messages({
       'string.empty': 'Message is required',
       'string.min': 'Message must be at least 10 characters long',
       'string.max': 'Message cannot exceed 1000 characters'
