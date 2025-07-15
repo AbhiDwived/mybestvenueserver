@@ -805,6 +805,20 @@ export const getVendorsFaqs = async (req, res) => {
   }
 }
 
+// Delete Faqs
+export const deleteFaq = async(req,res,next)=>{
+  
+  try{
+    const {faqId,vendorId} = req.params;
+     const result = await FAQ.findByIdAndDelete({_id:faqId,vendorId});
+    // console.log('Faq deleted successfully',result);
+    res.status(200).json({ message: 'Faq deleted successfully',result });
+}catch(error){
+  // console.log('Error deleting faq',error);
+  res.status(500).json({ message: 'Error deleting faq', error: error.message });
+}
+}
+
 // Update Vendor Pricing Range
 export const updateVendorPricingRange = async (req, res) => {
   const { vendorId } = req.params;
@@ -1393,6 +1407,26 @@ export const deletePricingList= async (req, res) => {
     await vendor.save();
 
     res.status(200).json({ message: 'Pricing item deleted', vendor });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// For Similar Vendors List 
+export const getSimilarVendors = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });  
+
+    const similarVendors = await Vendor.find({ 
+      vendorType: vendor.vendorType,
+      _id: { $ne: vendorId }
+
+     });
+
+    res.status(200).json({ similarVendors });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });

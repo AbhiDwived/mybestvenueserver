@@ -6,7 +6,12 @@ const reviewSchema = new mongoose.Schema({
   booking: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking', required: true },
   rating: { type: Number, required: true, min: 1, max: 5 },
   comment: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  reported: { type: Boolean, default: false },
+  reportReason: { type: String },
+  reportedAt: { type: Date },
+  status: { type: String, enum: ['pending', 'approved', 'on_hold'], default: 'pending' },
+  adminHoldReason: { type: String }
 });
 
 const Review = mongoose.model('Review', reviewSchema);

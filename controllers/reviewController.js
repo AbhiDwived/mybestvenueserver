@@ -1,6 +1,7 @@
 import Review from '../models/Review.js';
 import Booking from '../models/Booking.js';
 import mongoose from 'mongoose';
+import { VerifyAdmin } from '../middlewares/authMiddleware.js';
 
 // Create a review
 export const createReview = async (req, res) => {
@@ -23,19 +24,19 @@ export const createReview = async (req, res) => {
     if (existingReview) {
       return res.status(400).json({ message: 'You have already reviewed this booking.' });
     }
-    const review = new Review({ user, vendor, booking, rating, comment });
+    const review = new Review({ user, vendor, booking, rating, comment, status: 'pending' });
     await review.save();
-    res.status(201).json({ message: 'Review submitted!', review });
+    res.status(201).json({ message: 'Review submitted and pending admin approval!', review });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Get all reviews for a vendor
+// Get all reviews for a vendor (only approved)
 export const getVendorReviews = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const reviews = await Review.find({ vendor: vendorId })
+    const reviews = await Review.find({ vendor: vendorId, status: 'approved' })
       .populate('user', 'name')
       .sort({ createdAt: -1 });
     res.json({ reviews });
@@ -114,6 +115,98 @@ export const getVendorsReviewStats = async (req, res) => {
       if (!result[id]) result[id] = { avgRating: 0, reviewCount: 0 };
     });
     res.json({ stats: result });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Report a review (user)
+export const reportReview = async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const { reason } = req.body;
+    const user = req.user._id;
+    const review = await Review.findById(reviewId);
+    if (!review) return res.status(404).json({ message: 'Review not found.' });
+    // Only allow reporting if not already reported
+    if (review.reported) return res.status(400).json({ message: 'Review already reported.' });
+    review.reported = true;
+    review.reportReason = reason || 'Inappropriate content';
+    review.reportedAt = new Date();
+    await review.save();
+    res.json({ message: 'Review reported for moderation.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Admin: Get all reported reviews
+export const getReportedReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find({ reported: true })
+      .populate('user', 'name profilePhoto')
+      .populate('vendor', 'businessName');
+    res.json({ reviews });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Admin: Approve (unflag) a review
+export const approveReview = async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const review = await Review.findById(reviewId);
+    if (!review) return res.status(404).json({ message: 'Review not found.' });
+    review.reported = false;
+    review.reportReason = undefined;
+    review.reportedAt = undefined;
+    review.status = 'approved';
+    review.adminHoldReason = undefined;
+    await review.save();
+    res.json({ message: 'Review approved and unflagged.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Admin: Remove (hold) a review (require reason, do not delete)
+export const holdReview = async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ message: 'Reason is required.' });
+    const review = await Review.findById(reviewId);
+    if (!review) return res.status(404).json({ message: 'Review not found.' });
+    review.status = 'on_hold';
+    review.adminHoldReason = reason;
+    await review.save();
+    res.json({ message: 'Review put on hold with reason.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Admin: Delete any review
+export const adminDeleteReview = async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const review = await Review.findById(reviewId);
+    if (!review) return res.status(404).json({ message: 'Review not found.' });
+    await review.deleteOne();
+    res.json({ message: 'Review deleted by admin.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Admin: Get all reviews
+export const getAllReviews = async (req, res) => {
+  try {
+    const reviews = await Review.find()
+      .populate('user', 'name profilePhoto')
+      .populate('vendor', 'businessName');
+    res.json({ reviews });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

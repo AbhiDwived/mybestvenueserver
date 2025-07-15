@@ -37,7 +37,9 @@ import {
   deletePortfolioVideo,
   resendPasswordResetOtp,
   getlatestVendorTypeData,
-  deletePricingList
+  deletePricingList,
+  deleteFaq,
+  getSimilarVendors
 } from '../controllers/vendorController.js';
 
 const router = express.Router();
@@ -131,6 +133,7 @@ router.delete('/updateservicesPackage/:packageId', VerifyVendor,deleteServicePac
 // Faqs routes
 router.post("/addfaq",VerifyVendor,addFaq);
 router.get("/getfaqsbyVendor/:vendorId",VerifyVendor,getVendorsFaqs);
+router.delete("/deletefaq/:vendorId/:faqId",VerifyVendor,deleteFaq);
 
 // Update vendor pricing range
 router.put('/pricing-range/:vendorId', VerifyVendor, updateVendorPricingRange);
@@ -180,5 +183,11 @@ router.get('/getlatestvendorType',getlatestVendorTypeData );
 // get latest vendorType record
 router.get('/getlatestvendorType',getlatestVendorTypeData );
 router.delete("/:vendorId/pricing/:pricingId",VerifyVendor,deletePricingList);
+
+// get Similar Vendors List 
+router.get('/getSimilarVendors/:vendorId',getSimilarVendors);
+
+// Similar Vendors List 
+router.get("/getSimilarVendors/:vendorId",getSimilarVendors);
 
 export default router;
