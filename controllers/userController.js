@@ -10,6 +10,7 @@ import ImageKit from "imagekit";
 import { logUserLogin } from '../utils/activityLogger.js';
 import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddleware.js';
 import { logger } from '../utils/logger.js';
+import { sendEmail } from '../utils/sendEmail.js';
 
 dotenv.config();
 
@@ -69,32 +70,15 @@ export const register = async (req, res) => {
     console.log("Saved OTP:", savedUser.otp);
 
     // Send OTP email
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+    await sendEmail({
+      email,
+      subject: 'Verify your email with this OTP',
+      message: `Your OTP is ${otp}. It will expire in 10 minutes.`
     });
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Verify your email with this OTP",
-      text: `Your OTP is ${otp}. It will expire in 10 minutes.`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error("Error sending email:", error);
-        return res.status(500).json({ message: "Failed to send OTP email" });
-      }
-      console.log("OTP email sent:", info.response);
-
-      res.status(201).json({
-        message: "OTP sent to email. Please verify to activate your account.",
-        userId: newUser._id,
-      });
+    res.status(201).json({
+      message: "OTP sent to email. Please verify to activate your account.",
+      userId: newUser._id,
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -229,26 +213,10 @@ export const resendOtp = async (req, res) => {
     await user.save();
 
     // Send OTP via email
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: user.email,
-      subject: "Your New OTP for Registration",
-      text: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error("Error sending email:", error);
-        return res.status(500).json({ message: "Error sending OTP email" });
-      }
+    await sendEmail({
+      email: user.email,
+      subject: 'Your New OTP for Registration',
+      message: `Your new OTP is: ${otp}. It will expire in 10 minutes.`
     });
 
     res.status(200).json({
@@ -281,37 +249,11 @@ export const forgotPassword = async (req, res) => {
 
     await user.save();
 
-    console.log("🔐 OTP:", otp);
-    console.log("🕒 OTP Expires:", new Date(otpExpires));
-    console.log("📧 Email to be sent to:", user.email);
-
     // ✉️ SEND OTP VIA EMAIL
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-      timeout: 10000,
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: user.email,
-      subject: "Your Password Reset OTP",
-      text: `Your OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error("❌ Error sending email:", error.message);
-        console.error("Full error:", error); // Log full error object
-        return res.status(500).json({ message: "Failed to send OTP email" });
-      }
-      console.log("📨 Email sent successfully:", info.response);
+    await sendEmail({
+      email: user.email,
+      subject: 'Your Password Reset OTP',
+      message: `Your OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`
     });
 
     res.status(200).json({
