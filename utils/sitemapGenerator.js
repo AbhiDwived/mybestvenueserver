@@ -29,8 +29,8 @@ export async function generateSitemap(hostname) {
       { url: '/planners', changefreq: 'weekly', priority: 0.7 },
 
       // Wedding Venues
-      { url: '/Wedding_Venues', changefreq: 'weekly', priority: 0.9 },
-      { url: '/Wedding_Venues_city', changefreq: 'weekly', priority: 0.8 },
+      { url: '/wedding-venues ', changefreq: 'weekly', priority: 0.9 },
+      { url: '/wedding-venues _city', changefreq: 'weekly', priority: 0.8 },
 
       // Corporate
       { url: '/corporate', changefreq: 'monthly', priority: 0.6 },
@@ -38,7 +38,7 @@ export async function generateSitemap(hostname) {
       { url: '/contactUs', changefreq: 'monthly', priority: 0.6 },
 
       // Blogs and Ideas
-      { url: '/IdeaBlog', changefreq: 'weekly', priority: 0.7 },
+      { url: '/Blog', changefreq: 'weekly', priority: 0.7 },
 
       // Additional Pages
       { url: '/HowItWorks', changefreq: 'monthly', priority: 0.6 },
