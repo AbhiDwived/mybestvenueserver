@@ -12,7 +12,6 @@ import FAQ from '../models/Faq.js';
 import Booking from '../models/Booking.js';
 import { logUserLogin, logVendorProfileUpdate, logPackageUpdate } from '../utils/activityLogger.js';
 import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddleware.js';
-import { sendEmail } from '../utils/sendEmail.js';
 
 dotenv.config();
 
@@ -107,10 +106,26 @@ export const registerVendor = async (req, res) => {
     await newVendor.save();
 
     // Send OTP via email
-    await sendEmail({
-      email,
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
       subject: 'Your OTP for Vendor Registration',
-      message: `Your OTP is: ${otp}. It will expire in 10 minutes.`
+      text: `Your OTP is: ${otp}. It will expire in 10 minutes.`,
+    };
+
+    transporter.sendMail(mailOptions, (error) => {
+      if (error) {
+        console.error('Error sending email:', error);
+        return res.status(500).json({ message: 'Error sending OTP email' });
+      }
     });
 
     res.status(201).json({
@@ -208,10 +223,25 @@ export const resendVendorOtp = async (req, res) => {
     await vendor.save();
 
     // Send OTP via email
-    await sendEmail({
-      email: vendor.email,
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: vendor.email,
       subject: 'Your New OTP for Vendor Verification',
-      message: `Your new OTP is: ${otp}. It will expire in 10 minutes.`
+      text: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
+    };
+
+    transporter.sendMail(mailOptions, (error) => {
+      if (error) {
+        console.error('Error sending email:', error);
+      }
     });
 
     res.status(200).json({
@@ -249,10 +279,26 @@ export const vendorForgotPassword = async (req, res) => {
     await vendor.save();
 
     // Send OTP via email
-    await sendEmail({
-      email,
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
       subject: 'Password Reset OTP',
-      message: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`
+      text: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
+    };
+
+    transporter.sendMail(mailOptions, (error) => {
+      if (error) {
+        console.error('Error sending email:', error);
+        return res.status(500).json({ message: 'Error sending OTP email' });
+      }
     });
 
     res.status(200).json({
@@ -345,10 +391,26 @@ export const resendPasswordResetOtp = async (req, res) => {
     await vendor.save();
 
     // Send OTP via email
-    await sendEmail({
-      email,
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
       subject: 'New Password Reset OTP',
-      message: `Your new OTP for password reset is: ${otp}. It will expire in 10 minutes.`
+      text: `Your new OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
+    };
+
+    transporter.sendMail(mailOptions, (error) => {
+      if (error) {
+        console.error('Error sending email:', error);
+        return res.status(500).json({ message: 'Error sending OTP email' });
+      }
     });
 
     res.status(200).json({
