@@ -19,7 +19,10 @@ const imagekit = new ImageKit({
   privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
 });
 
-// Register new user (with email OTP)
+// In-memory store for pending registrations (for demo; use Redis for production)
+const pendingRegistrations = {}; // { [email]: { userData, otp, otpExpires } }
+
+// Register new user (with email OTP) - only store in DB after OTP verification
 export const register = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
@@ -31,10 +34,20 @@ export const register = async (req, res) => {
         .json({ message: "All required fields must be provided" });
     }
 
-    // Check if user already exists
+    // Check if user already exists in DB
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
+    }
+
+    // Check if pending registration exists
+    if (pendingRegistrations[email]) {
+      // If OTP expired, allow re-registration
+      if (pendingRegistrations[email].otpExpires < Date.now()) {
+        delete pendingRegistrations[email];
+      } else {
+        return res.status(400).json({ message: "OTP already sent. Please verify your email." });
+      }
     }
 
     // Hash password
@@ -47,26 +60,12 @@ export const register = async (req, res) => {
     // Handle profile photo - use ImageKit URL if available
     const profilePhoto = req.fileUrl || null;
 
-    // Create user
-    const newUser = new User({
-      name,
-      email,
-      phone,
-      password: hashedPassword,
+    // Store in pendingRegistrations
+    pendingRegistrations[email] = {
+      userData: { name, email, phone, password: hashedPassword, profilePhoto },
       otp,
       otpExpires,
-      isVerified: false,
-      role: "user",
-      profilePhoto,
-    });
-
-    await newUser.save();
-
-    // Debug logs
-    const savedUser = await User.findById(newUser._id).select(
-      "+otp +otpExpires"
-    );
-    console.log("Saved OTP:", savedUser.otp);
+    };
 
     // Send OTP email
     const transporter = nodemailer.createTransport({
@@ -87,13 +86,15 @@ export const register = async (req, res) => {
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
         console.error("Error sending email:", error);
+        // Clean up pending registration if email fails
+        delete pendingRegistrations[email];
         return res.status(500).json({ message: "Failed to send OTP email" });
       }
       console.log("OTP email sent:", info.response);
 
       res.status(201).json({
         message: "OTP sent to email. Please verify to activate your account.",
-        userId: newUser._id,
+        email, // Use email as identifier for OTP verification
       });
     });
   } catch (error) {
@@ -102,51 +103,31 @@ export const register = async (req, res) => {
   }
 };
 
-// Verify OTP and complete registration
+// Verify OTP and complete registration (create user in DB only after OTP is verified)
 export const verifyOtp = async (req, res) => {
-  const { userId, otp } = req.body;
+  const { email, otp } = req.body;
 
   console.log("--- VERIFY OTP DEBUG START ---");
-  console.log("Received userId:", userId);
+  console.log("Received email:", email);
   console.log("Received raw OTP:", otp);
 
   try {
-    // FIXED: Add .select('+otp +otpExpires') to include fields with select:false
-    const user = await User.findById(userId).select("+otp +otpExpires");
-
-    if (!user) {
-      console.log("User not found for ID:", userId);
-      return res.status(404).json({ message: "User not found" });
+    const pending = pendingRegistrations[email];
+    if (!pending) {
+      console.log("No pending registration found for email:", email);
+      return res.status(400).json({ message: "No pending registration found. Please register again." });
     }
 
-    console.log("Found user:", {
-      id: user._id,
-      email: user.email,
-      storedOtp: user.otp, // Now this will have a value
-      otpExpires: user.otpExpires,
-      isVerified: user.isVerified,
-      now: new Date(),
-    });
-
-    // Step 2: Check if already verified
-    if (user.isVerified) {
-      console.log("User is already verified.");
-      return res.status(400).json({ message: "User already verified" });
-    }
-
-    // Step 3: Compare OTP and check expiration
     const trimmedOtp = otp?.toString().trim();
-    const storedOtp = user.otp?.toString();
-
-    // FIXED: Ensure both values are strings and properly compared
+    const storedOtp = pending.otp?.toString();
     const isOtpMatch = trimmedOtp === storedOtp;
-    const isExpired = user.otpExpires < Date.now();
+    const isExpired = pending.otpExpires < Date.now();
 
     console.log(
       "OTP Match?",
       isOtpMatch
         ? "✅ Yes"
-        : `❌ No (Expected "${storedOtp}", Got "${trimmedOtp}")`
+        : `❌ No (Expected \"${storedOtp}\", Got \"${trimmedOtp}\")`
     );
     console.log("OTP Expired?", isExpired ? "✅ Yes" : "❌ No");
 
@@ -154,17 +135,19 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    // Step 4: Mark user as verified
-    user.isVerified = true;
-    user.otp = undefined;
-    user.otpExpires = undefined;
-    await user.save();
+    // Create user in DB
+    const newUser = new User({
+      ...pending.userData,
+      isVerified: true,
+    });
+    await newUser.save();
 
-    console.log("✅ OTP Verified Successfully. User marked as verified.");
+    // Remove from pendingRegistrations
+    delete pendingRegistrations[email];
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, email: user.email },
+      { id: newUser._id, email: newUser.email },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -173,57 +156,79 @@ export const verifyOtp = async (req, res) => {
       message: "Registration completed successfully",
       token,
       user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        address: user.address,
-        city: user.city,
-        state: user.state,
-        country: user.country,
-        profilePhoto: user.profilePhoto,
+        id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone,
+        address: newUser.address,
+        city: newUser.city,
+        state: newUser.state,
+        country: newUser.country,
+        profilePhoto: newUser.profilePhoto,
       },
     });
 
     console.log("--- VERIFY OTP DEBUG END ---\n");
   } catch (error) {
     console.error("🚨 Error verifying OTP:", error);
-    console.error("Error Name:", error.name);
-    console.error("Error Message:", error.message);
-    console.error("Error Stack:", error.stack);
-    
-    res
-      .status(500)
-      .json({ 
-        message: "Error verifying OTP", 
-        error: error.message,
-        details: {
-          name: error.name,
-          stack: error.stack
-        }
-      });
+    res.status(500).json({ message: "Error verifying OTP", error: error.message });
   }
 };
 
 // Resend OTP
 export const resendOtp = async (req, res) => {
-  const { userId } = req.body;
+  const { email } = req.body;
 
   try {
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    // First, check if there is a pending registration (not yet in DB)
+    if (pendingRegistrations[email]) {
+      // Generate new OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+      pendingRegistrations[email].otp = otp;
+      pendingRegistrations[email].otpExpires = otpExpires;
+
+      // Send OTP via email
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Your New OTP for Registration",
+        text: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
+      };
+
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error("Error sending email:", error);
+          return res.status(500).json({ message: "Error sending OTP email" });
+        }
+        res.status(200).json({
+          message: "New OTP sent to email.",
+          email,
+        });
+      });
+      return;
     }
 
+    // If not in pendingRegistrations, check if user exists in DB and is not verified
+    const user = await User.findOne({ email }).select("+otp +otpExpires +isVerified");
+    if (!user) {
+      return res.status(404).json({ message: "No pending registration or user found. Please register again." });
+    }
     if (user.isVerified) {
       return res.status(400).json({ message: "User already verified" });
     }
 
-    // Generate new OTP
+    // Generate new OTP for DB user (should rarely happen)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-    // Update user with new OTP
     user.otp = otp;
     user.otpExpires = otpExpires;
     await user.save();
@@ -239,7 +244,7 @@ export const resendOtp = async (req, res) => {
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: user.email,
+      to: email,
       subject: "Your New OTP for Registration",
       text: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
     };
@@ -249,16 +254,13 @@ export const resendOtp = async (req, res) => {
         console.error("Error sending email:", error);
         return res.status(500).json({ message: "Error sending OTP email" });
       }
-    });
-
-    res.status(200).json({
-      message: "New OTP sent to email.",
-      userId: user._id,
+      res.status(200).json({
+        message: "New OTP sent to email.",
+        email,
+      });
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error resending OTP", error: error.message });
+    res.status(500).json({ message: "Error resending OTP", error: error.message });
   }
 };
 

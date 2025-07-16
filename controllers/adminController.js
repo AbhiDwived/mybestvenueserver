@@ -523,4 +523,4 @@ export const getLatestVendorsByType = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Error fetching latest vendors", error: error.message });
   }
-};
+};''
