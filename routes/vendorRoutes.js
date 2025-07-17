@@ -12,9 +12,6 @@ import {
   loginVendor,
   updateVendorProfile,
   deleteVendor,
-  vendorForgotPassword,
-  verifyVendorResetOtp,
-  resetVendorPassword,
   getVendorById,
   addUserInquiryReply,
   getVendorRepliedInquiryList,
@@ -41,6 +38,7 @@ import {
   deleteFaq,
   getSimilarVendors
 } from '../controllers/vendorController.js';
+import { forgotPassword, verifyResetOtp, resetPassword } from '../controllers/authController.js';
 
 const router = express.Router();
 
@@ -84,16 +82,16 @@ router.post('/resendvendor-otp', resendVendorOtp);
 router.post('/login', validate(userValidation.login), loginVendor);
 
 // Forgot password
-router.post('/forgot-password', vendorForgotPassword);
+router.post('/forgot-password', forgotPassword);
 
 // Verify OTP for password reset
-router.post('/forgot_password_otp', verifyVendorResetOtp);
+router.post('/forgot_password_otp', verifyResetOtp);
 
 // Resend password reset OTP
 router.post('/resend-forgot-password-otp', resendPasswordResetOtp);
 
 // Reset password
-router.post('/reset_password', resetVendorPassword);
+router.post('/reset_password', resetPassword);
 
 // Update vendor profile (vendor only)
 router.put('/update/:id', 
