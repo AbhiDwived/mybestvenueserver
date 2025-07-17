@@ -15,6 +15,9 @@ import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddlewar
 
 dotenv.config();
 
+// In-memory store for pending vendor registrations
+const pendingVendorRegistrations = {}; // { [email]: { vendorData, otp, otpExpires } }
+
 // Helper function to extract file ID from ImageKit URL
 const getImageKitFileId = (url) => {
   try {
@@ -103,7 +106,53 @@ export const registerVendor = async (req, res) => {
       }
     }
 
-    await newVendor.save();
+    // Prepare vendor data for temporary storage
+    const vendorData = {
+      businessName,
+      vendorType,
+      contactName,
+      email,
+      phone,
+      password: hashedPassword,
+      profilePicture,
+      isVerified: false,
+      termsAccepted: false,
+    };
+
+    // Handle serviceAreas and address separately to ensure proper parsing
+    if (req.body.serviceAreas) {
+      try {
+        vendorData.serviceAreas = JSON.parse(req.body.serviceAreas);
+      } catch (error) {
+        console.error('Error parsing serviceAreas:', error);
+        return res.status(400).json({ message: 'Invalid serviceAreas format' });
+      }
+    }
+
+    if (req.body.address) {
+      try {
+        const addressData = typeof req.body.address === 'string' ? JSON.parse(req.body.address) : req.body.address;
+        
+        // Ensure the address object has the required fields
+        vendorData.address = {
+          city: addressData.city || 'Not Specified',
+          state: addressData.state || 'Not Specified',
+          street: addressData.street || '',
+          country: addressData.country || 'India',
+          zipCode: addressData.zipCode || ''
+        };
+      } catch (error) {
+        console.error('Error parsing address:', error);
+        return res.status(400).json({ message: 'Invalid address format. Expected format: { city: string, state: string }' });
+      }
+    }
+
+    // Store in pendingVendorRegistrations
+    pendingVendorRegistrations[email] = {
+      vendorData,
+      otp,
+      otpExpires,
+    };
 
     // Send OTP via email
     const transporter = nodemailer.createTransport({
@@ -124,13 +173,15 @@ export const registerVendor = async (req, res) => {
     transporter.sendMail(mailOptions, (error) => {
       if (error) {
         console.error('Error sending email:', error);
+        // Clean up pending registration if email fails
+        delete pendingVendorRegistrations[email];
         return res.status(500).json({ message: 'Error sending OTP email' });
       }
     });
 
     res.status(201).json({
-      message: 'Vendor registration pending. OTP sent to email.',
-      vendorId: newVendor._id,
+      message: 'OTP sent to email. Please verify to activate your vendor account.',
+      email, // Use email as identifier for OTP verification
     });
 
   } catch (error) {
@@ -138,93 +189,140 @@ export const registerVendor = async (req, res) => {
   }
 };
 
-// Verify vendor OTP
+// Verify OTP and complete registration (create vendor in DB only after OTP is verified)
 export const verifyVendorOtp = async (req, res) => {
-  const { vendorId, otp } = req.body;
+  const { email, otp } = req.body;
+
+  console.log("--- VERIFY VENDOR OTP DEBUG START ---");
+  console.log("Received email:", email);
+  console.log("Received raw OTP:", otp);
+
   try {
-    const vendor = await Vendor.findById(vendorId).select('+otp +otpExpires');
-    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
-    if (vendor.isVerified) return res.status(400).json({ message: 'Vendor already verified' });
-
-    const isMatch = otp.toString().trim() === vendor.otp?.toString();
-    const isExpired = vendor.otpExpires < Date.now();
-
-    if (!isMatch || isExpired) {
-      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    const pending = pendingVendorRegistrations[email];
+    if (!pending) {
+      console.log("No pending registration found for email:", email);
+      return res.status(400).json({ message: "No pending registration found. Please register again." });
     }
 
-    vendor.isVerified = true;
-    vendor.otp = undefined;
-    vendor.otpExpires = undefined;
-    await vendor.save();
+    const trimmedOtp = otp?.toString().trim();
+    const storedOtp = pending.otp?.toString();
+    const isOtpMatch = trimmedOtp === storedOtp;
+    const isExpired = pending.otpExpires < Date.now();
 
+    console.log(
+      "OTP Match?",
+      isOtpMatch
+        ? "✅ Yes"
+        : `❌ No (Expected \"${storedOtp}\", Got \"${trimmedOtp}\")`
+    );
+    console.log("OTP Expired?", isExpired ? "✅ Yes" : "❌ No");
+
+    if (!isOtpMatch || isExpired) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    // Create vendor in DB
+    const newVendor = new Vendor({
+      ...pending.vendorData,
+      isVerified: true,
+    });
+    await newVendor.save();
+
+    // Remove from pendingVendorRegistrations
+    delete pendingVendorRegistrations[email];
+
+    // Generate JWT token
     const token = jwt.sign(
-      { id: vendor._id, email: vendor.email, role: vendor.role },
+      { id: newVendor._id, email: newVendor.email, role: newVendor.role },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: "1d" }
     );
 
     res.status(200).json({
-      message: 'Vendor verified successfully',
+      message: "Vendor registration completed successfully",
       token,
       vendor: {
-        id: vendor._id,
-        businessName: vendor.businessName,
-        vendorType: vendor.vendorType,
-        contactName: vendor.contactName,
-        email: vendor.email,
-        phone: vendor.phone,
-        role: vendor.role,
+        id: newVendor._id,
+        businessName: newVendor.businessName,
+        vendorType: newVendor.vendorType,
+        contactName: newVendor.contactName,
+        email: newVendor.email,
+        phone: newVendor.phone,
+        profilePicture: newVendor.profilePicture,
+        isApproved: newVendor.isApproved,
+        status: newVendor.status,
+        role: newVendor.role,
       },
     });
 
+    console.log("--- VERIFY VENDOR OTP DEBUG END ---\n");
   } catch (error) {
-    res.status(500).json({ message: 'Error verifying OTP', error: error.message });
+    console.error("🚨 Error verifying Vendor OTP:", error);
+    res.status(500).json({ message: "Error verifying OTP", error: error.message });
   }
 };
 
 // Resend vendor OTP
 export const resendVendorOtp = async (req, res) => {
+  const { email } = req.body;
+
   try {
-    // Extract vendorId, handling different input types
-    const vendorId = req.body.vendorId || req.body.id;
-    
-    // Validate vendorId
-    if (!vendorId) {
-      return res.status(400).json({ message: 'Vendor ID is required' });
+    // First, check if there is a pending registration (not yet in DB)
+    if (pendingVendorRegistrations[email]) {
+      // Generate new OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+      pendingVendorRegistrations[email].otp = otp;
+      pendingVendorRegistrations[email].otpExpires = otpExpires;
+
+      // Send OTP via email
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Your New OTP for Vendor Registration",
+        text: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
+      };
+
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error("Error sending email:", error);
+          return res.status(500).json({ message: "Error sending OTP email" });
+        }
+        res.status(200).json({
+          message: "New OTP sent to email.",
+          email,
+        });
+      });
+      return;
     }
 
-    // Find vendor by ID with multiple fallback methods
-    let vendor;
-    try {
-      // Try converting to ObjectId first
-      vendor = await Vendor.findById(new mongoose.Types.ObjectId(vendorId));
-    } catch (idError) {
-      // If ObjectId conversion fails, try finding by string ID
-      console.warn('ObjectId conversion failed, trying string search:', idError.message);
-      vendor = await Vendor.findOne({ _id: vendorId });
-    }
-    
+    // If not in pendingVendorRegistrations, check if vendor exists in DB and is not verified
+    const vendor = await Vendor.findOne({ email }).select("+otp +otpExpires +isVerified");
     if (!vendor) {
-      return res.status(404).json({ message: 'Vendor not found' });
+      return res.status(404).json({ message: "No pending registration or vendor found. Please register again." });
     }
-
     if (vendor.isVerified) {
-      return res.status(400).json({ message: 'Vendor already verified' });
+      return res.status(400).json({ message: "Vendor already verified" });
     }
 
-    // Generate new OTP
+    // Generate new OTP for DB vendor (should rarely happen if pendingRegistrations is used correctly)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = Date.now() + 10 * 60 * 1000;
-
-    // Update vendor with new OTP
+    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     vendor.otp = otp;
     vendor.otpExpires = otpExpires;
     await vendor.save();
 
     // Send OTP via email
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: "gmail",
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
@@ -233,22 +331,21 @@ export const resendVendorOtp = async (req, res) => {
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: vendor.email,
-      subject: 'Your New OTP for Vendor Verification',
+      to: email,
+      subject: "Your New OTP for Vendor Registration",
       text: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
     };
 
-    transporter.sendMail(mailOptions, (error) => {
+    transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
-        console.error('Error sending email:', error);
+        console.error("Error sending email:", error);
+        return res.status(500).json({ message: "Error sending OTP email" });
       }
+      res.status(200).json({
+        message: "New OTP sent to email.",
+        email,
+      });
     });
-
-    res.status(200).json({
-      message: 'New OTP sent successfully',
-      vendorId: vendor._id,
-    });
-
   } catch (error) {
     console.error('Error resending OTP:', error);
     res.status(500).json({ 
