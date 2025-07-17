@@ -25,9 +25,9 @@ export const userValidation = {
       'string.email': 'Please enter a valid email address',
       'string.minDomainSegments': 'Email domain is invalid'
     }),
-    phone: Joi.string().required().pattern(/^[6-9]\d{9}$/).messages({
+    phone: Joi.string().required().pattern(/^\+[1-9]\d{1,14}$/).messages({
       'string.empty': 'Phone number is required',
-      'string.pattern.base': 'Please enter a valid Indian mobile number'
+      'string.pattern.base': 'Please enter a valid phone number'
     }),
     password: Joi.string().required()
       .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/)
