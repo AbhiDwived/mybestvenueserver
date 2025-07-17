@@ -12,10 +12,10 @@ const objectId = Joi.string().custom((value, helpers) => {
 // User validation schemas
 export const userValidation = {
   register: Joi.object({
-    name: Joi.string().required().min(3).max(50).messages({
+    name: Joi.string().required().min(3).max(25).messages({
       'string.empty': 'Name is required',
       'string.min': 'Name must be at least 3 characters long',
-      'string.max': 'Name cannot exceed 50 characters'
+      'string.max': 'Name cannot exceed 25 characters'
     }),
     email: Joi.string().required().email({
       minDomainSegments: 2,
@@ -83,9 +83,10 @@ export const vendorValidation = {
     vendorType: Joi.string().required().messages({
       'string.empty': 'Vendor type is required'
     }),
-    contactName: Joi.string().required().min(3).max(50).messages({
+    contactName: Joi.string().required().min(3).max(25).messages({
       'string.empty': 'Contact name is required',
-      'string.min': 'Contact name must be at least 3 characters long'
+      'string.min': 'Contact name must be at least 3 characters long',
+      'string.max': 'Contact name cannot exceed 25 characters'
     }),
     email: Joi.string().required().email().messages({
       'string.empty': 'Email is required',
