@@ -162,29 +162,19 @@ export const registerVendor = async (req, res) => {
     };
 
     // Send OTP via email
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Your OTP for Vendor Registration',
-      text: `Your OTP is: ${otp}. It will expire in 10 minutes.`,
-    };
-
-    transporter.sendMail(mailOptions, (error) => {
-      if (error) {
-        console.error('Error sending email:', error);
-        // Clean up pending registration if email fails
-        delete pendingVendorRegistrations[email];
-        return res.status(500).json({ message: 'Error sending OTP email' });
-      }
-    });
+    try {
+      const { sendEmail } = await import('../utils/sendEmail.js');
+      await sendEmail({
+        email: email,
+        subject: 'Your OTP for Vendor Registration',
+        message: `Your OTP is: ${otp}. It will expire in 10 minutes.`,
+      });
+    } catch (error) {
+      console.error('Error sending email:', error);
+      // Clean up pending registration if email fails
+      delete pendingVendorRegistrations[email];
+      return res.status(500).json({ message: 'Error sending OTP email' });
+    }
 
     res.status(201).json({
       message: 'OTP sent to email. Please verify to activate your vendor account.',
@@ -385,27 +375,17 @@ export const resendPasswordResetOtp = async (req, res) => {
     await vendor.save();
 
     // Send OTP via email
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'New Password Reset OTP',
-      text: `Your new OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
-    };
-
-    transporter.sendMail(mailOptions, (error) => {
-      if (error) {
-        console.error('Error sending email:', error);
-        return res.status(500).json({ message: 'Error sending OTP email' });
-      }
-    });
+    try {
+      const { sendEmail } = await import('../utils/sendEmail.js');
+      await sendEmail({
+        email: email,
+        subject: 'New Password Reset OTP',
+        message: `Your new OTP for password reset is: ${otp}. It will expire in 10 minutes.`,
+      });
+    } catch (error) {
+      console.error('Error sending email:', error);
+      return res.status(500).json({ message: 'Error sending OTP email' });
+    }
 
     res.status(200).json({
       message: 'New OTP sent to your email',

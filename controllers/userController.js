@@ -62,35 +62,24 @@ export const register = async (req, res) => {
     };
 
     // Send OTP email
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Verify your email with this OTP",
-      text: `Your OTP is ${otp}. It will expire in 10 minutes.`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error("Error sending email:", error);
-        // Clean up pending registration if email fails
-        delete pendingRegistrations[email];
-        return res.status(500).json({ message: "Failed to send OTP email" });
-      }
-      console.log("OTP email sent:", info.response);
+    try {
+      const { sendEmail } = await import('../utils/sendEmail.js');
+      await sendEmail({
+        email: email,
+        subject: "Verify your email with this OTP",
+        message: `Your OTP is ${otp}. It will expire in 10 minutes.`,
+      });
 
       res.status(201).json({
         message: "OTP sent to email. Please verify to activate your account.",
         email, // Use email as identifier for OTP verification
       });
-    });
+    } catch (error) {
+      console.error("Error sending email:", error);
+      // Clean up pending registration if email fails
+      delete pendingRegistrations[email];
+      return res.status(500).json({ message: "Failed to send OTP email" });
+    }
   } catch (error) {
     console.error("Registration error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -183,31 +172,21 @@ export const resendOtp = async (req, res) => {
       pendingRegistrations[email].otpExpires = otpExpires;
 
       // Send OTP via email
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: "Your New OTP for Registration",
-        text: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
-      };
-
-      transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-          console.error("Error sending email:", error);
-          return res.status(500).json({ message: "Error sending OTP email" });
-        }
+      try {
+        const { sendEmail } = await import('../utils/sendEmail.js');
+        await sendEmail({
+          email: email,
+          subject: "Your New OTP for Registration",
+          message: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
+        });
         res.status(200).json({
           message: "New OTP sent to email.",
           email,
         });
-      });
+      } catch (error) {
+        console.error("Error sending email:", error);
+        return res.status(500).json({ message: "Error sending OTP email" });
+      }
       return;
     }
 
@@ -282,33 +261,18 @@ export const forgotPassword = async (req, res) => {
     console.log("📧 Email to be sent to:", user.email);
 
     // ✉️ SEND OTP VIA EMAIL
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-      timeout: 10000,
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: user.email,
-      subject: "Your Password Reset OTP",
-      text: `Your OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error("❌ Error sending email:", error.message);
-        console.error("Full error:", error); // Log full error object
-        return res.status(500).json({ message: "Failed to send OTP email" });
-      }
-      console.log("📨 Email sent successfully:", info.response);
-    });
+    try {
+      const { sendEmail } = await import('../utils/sendEmail.js');
+      await sendEmail({
+        email: user.email,
+        subject: "Your Password Reset OTP",
+        message: `Your OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`,
+      });
+    } catch (error) {
+      console.error("❌ Error sending email:", error.message);
+      console.error("Full error:", error); // Log full error object
+      return res.status(500).json({ message: "Failed to send OTP email" });
+    }
 
     res.status(200).json({
       message: "OTP sent to email",

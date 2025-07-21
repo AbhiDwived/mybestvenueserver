@@ -3,17 +3,18 @@ import nodemailer from 'nodemailer';
 // Create a reusable transporter object
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: process.env.SMTP_SECURE === 'true',
+    host: process.env.SMTP_HOST || 'smtp.mandrillapp.com',
+    port: parseInt(process.env.SMTP_PORT, 10) || 587,
+    secure: process.env.SMTP_SECURE === 'true', // false for port 587
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
     },
-    // Add timeout settings
     connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 5000,   // 5 seconds
-    socketTimeout: 10000     // 10 seconds
+    greetingTimeout: 5000,    // 5 seconds
+    socketTimeout: 10000,     // 10 seconds
+    logger: true,             // enable debug logger
+    debug: true               // enable debug mode
   });
 };
 
@@ -44,15 +45,16 @@ export const sendEmail = async ({ email, subject, message }) => {
   try {
     transporter = createTransporter();
 
-    // Test connection before sending
+    console.log('Verifying SMTP connection...');
     await transporter.verify();
+    console.log('SMTP connection verified.');
 
     // Send mail with retries
     const info = await retry(async () => {
       const result = await transporter.sendMail({
-              from: `"MyBestVenue" <${process.env.EMAIL_FROM}>`,
-              to: email,
-              subject: subject,
+        from: `"MyBestVenue" <${process.env.EMAIL_FROM || 'no-reply@mybestvenue.com'}>`,
+        to: email,
+        subject,
         text: message,
         html: message.replace(/\n/g, '<br>')
       });
@@ -60,7 +62,7 @@ export const sendEmail = async ({ email, subject, message }) => {
       console.log('Email sent successfully:', {
         messageId: result.messageId,
         to: email,
-        subject: subject,
+        subject,
         timestamp: new Date().toISOString()
       });
 
@@ -71,13 +73,15 @@ export const sendEmail = async ({ email, subject, message }) => {
   } catch (error) {
     console.error('Email sending failed:', {
       error: error.message,
+      response: error.response,
+      code: error.code,
       stack: error.stack,
       email,
       subject,
       timestamp: new Date().toISOString()
     });
 
-    // Classify error for better handling
+    // Classify error
     let errorMessage = 'Failed to send email';
     if (error.code === 'ECONNECTION') {
       errorMessage = 'Failed to connect to email server';
@@ -85,6 +89,8 @@ export const sendEmail = async ({ email, subject, message }) => {
       errorMessage = 'Email server connection timed out';
     } else if (error.responseCode >= 500) {
       errorMessage = 'Email server error';
+    } else if (error.responseCode === 535 || error.responseCode === 534) {
+      errorMessage = 'SMTP authentication failed';
     }
 
     throw new Error(errorMessage);
