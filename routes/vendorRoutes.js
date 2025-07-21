@@ -1,6 +1,6 @@
 import express from 'express';
 import upload from '../middlewares/upload.js';
-import { uploadToImageKit } from '../middlewares/imageKitUpload.js';
+import { uploadToImageKit, uploadToStorage } from '../middlewares/imageKitUpload.js';
 import { validate, vendorValidation, userValidation } from '../middlewares/validation.js';
 import { VerifyVendor, VerifyAdmin, CheckVendorApproval } from '../middlewares/authMiddleware.js';
 import multer from 'multer';
@@ -44,6 +44,9 @@ const router = express.Router();
 
 // Configure multer for video upload
 const videoUpload = multer({
+  // Use memory storage for S3/ImageKit uploads
+  storage: multer.memoryStorage(),
+  
   // Limit file size to 50MB
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   
@@ -65,10 +68,10 @@ router.post('/register',
   upload.single('profilePicture'),
   (req, res, next) => {
     // Set the folder path for vendor profile pictures
-    req.imagePath = '/vendor-profiles';
+    req.imagePath = 'vendor-profiles';
     next();
   },
-  uploadToImageKit,
+  uploadToStorage, // This will use either S3 or ImageKit based on STORAGE_TYPE
   registerVendor
 );
 
@@ -101,10 +104,10 @@ router.put('/update/:id',
   upload.single('profilePicture'),
   (req, res, next) => {
     // Set the folder path for vendor profile pictures
-    req.imagePath = '/vendor-profiles';
+    req.imagePath = 'vendor-profiles';
     next();
   },
-  uploadToImageKit,
+  uploadToStorage, // This will use either S3 or ImageKit based on STORAGE_TYPE
   updateVendorProfile
 );
 
@@ -152,10 +155,10 @@ router.post('/portfolio/image',
   CheckVendorApproval,
   upload.single('image'),
   (req, res, next) => {
-    req.imagePath = '/vendors/portfolio';
+    req.imagePath = 'vendors/portfolio';
     next();
   },
-  uploadToImageKit,
+  uploadToStorage, // This will use either S3 or ImageKit based on STORAGE_TYPE
   uploadPortfolioImage
 );
 

@@ -1,6 +1,6 @@
 import express from 'express';
 import upload from '../middlewares/upload.js';
-import { uploadToImageKit } from '../middlewares/imageKitUpload.js';
+import { uploadToImageKit, uploadToStorage } from '../middlewares/imageKitUpload.js';
 import {
     createBlog,
     getAllBlogs,
@@ -24,7 +24,7 @@ router.get('/search', searchBlogs);
 router.post('/create',
     VerifyAdmin,
     upload.single('image'),
-    uploadToImageKit,
+    uploadToStorage, // This will use either S3 or ImageKit based on STORAGE_TYPE
     createBlog
 );
 

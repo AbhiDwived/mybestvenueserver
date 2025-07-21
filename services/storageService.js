@@ -1,0 +1,201 @@
+import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import s3Client, { S3_BUCKET_NAME } from '../config/s3Config.js';
+import imagekit from '../config/imagekit.js';
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+// Determine which storage service to use
+const STORAGE_TYPE = process.env.STORAGE_TYPE || 'imagekit'; // Default to imagekit if not specified
+
+/**
+ * Upload a file to the configured storage service
+ * @param {Buffer} fileBuffer - The file buffer
+ * @param {string} originalName - Original filename
+ * @param {string} mimeType - File MIME type
+ * @param {string} folder - Folder path for the file
+ * @returns {Promise<Object>} - Upload result with URL
+ */
+export const uploadFile = async (fileBuffer, originalName, mimeType, folder = 'uploads') => {
+  // Use S3 if configured, otherwise use ImageKit
+  if (STORAGE_TYPE === 's3') {
+    return uploadToS3(fileBuffer, originalName, mimeType, folder);
+  } else {
+    return uploadToImageKit(fileBuffer, originalName, folder);
+  }
+};
+
+/**
+ * Upload a file to S3
+ * @param {Buffer} fileBuffer - The file buffer
+ * @param {string} originalName - Original filename
+ * @param {string} mimeType - File MIME type
+ * @param {string} folder - Folder path for the file
+ * @returns {Promise<Object>} - Upload result with URL
+ */
+const uploadToS3 = async (fileBuffer, originalName, mimeType, folder) => {
+  try {
+    // Generate unique filename
+    const fileExtension = path.extname(originalName);
+    const fileName = `${Date.now()}-${uuidv4()}${fileExtension}`;
+    
+    // Create the full key (path in S3)
+    const key = `${folder}/${fileName}`;
+
+    // Upload to S3
+    const params = {
+      Bucket: S3_BUCKET_NAME,
+      Key: key,
+      Body: fileBuffer,
+      ContentType: mimeType
+      // Removed ACL: 'public-read' as the bucket doesn't allow ACLs
+    };
+
+    const command = new PutObjectCommand(params);
+    await s3Client.send(command);
+
+    // Generate S3 URL
+    const s3Url = `https://${S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
+    
+    return {
+      url: s3Url,
+      key: key,
+      name: fileName,
+      size: fileBuffer.length,
+      storageType: 's3'
+    };
+  } catch (error) {
+    console.error('S3 Upload Error:', error);
+    throw new Error(`Error uploading to S3: ${error.message}`);
+  }
+};
+
+/**
+ * Upload a file to ImageKit
+ * @param {Buffer} fileBuffer - The file buffer
+ * @param {string} originalName - Original filename
+ * @param {string} folder - Folder path for the file
+ * @returns {Promise<Object>} - Upload result with URL
+ */
+const uploadToImageKit = async (fileBuffer, originalName, folder) => {
+  try {
+    // Convert buffer to base64
+    const fileStr = fileBuffer.toString('base64');
+
+    // Upload to ImageKit
+    const response = await imagekit.upload({
+      file: fileStr,
+      fileName: `${Date.now()}-${originalName}`,
+      folder: folder
+    });
+
+    return {
+      url: response.url,
+      fileId: response.fileId,
+      name: response.name,
+      size: response.size,
+      storageType: 'imagekit'
+    };
+  } catch (error) {
+    console.error('ImageKit Upload Error:', error);
+    throw new Error(`Error uploading to ImageKit: ${error.message}`);
+  }
+};
+
+/**
+ * Delete a file from storage
+ * @param {string} fileUrl - The file URL or key
+ * @returns {Promise<boolean>} - True if deletion was successful
+ */
+export const deleteFile = async (fileUrl) => {
+  try {
+    if (!fileUrl) return false;
+    
+    // Determine if it's an S3 or ImageKit URL
+    if (fileUrl.includes('amazonaws.com')) {
+      return await deleteFromS3(fileUrl);
+    } else if (fileUrl.includes('imagekit.io')) {
+      return await deleteFromImageKit(fileUrl);
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Delete File Error:', error);
+    return false;
+  }
+};
+
+/**
+ * Delete a file from S3
+ * @param {string} fileUrl - The S3 file URL or key
+ * @returns {Promise<boolean>} - True if deletion was successful
+ */
+const deleteFromS3 = async (fileUrl) => {
+  try {
+    // Extract key from URL if it's a full URL
+    let key = fileUrl;
+    if (fileUrl.includes('amazonaws.com')) {
+      const urlObj = new URL(fileUrl);
+      key = urlObj.pathname.substring(1); // Remove leading slash
+    }
+
+    const params = {
+      Bucket: S3_BUCKET_NAME,
+      Key: key
+    };
+
+    const command = new DeleteObjectCommand(params);
+    await s3Client.send(command);
+    return true;
+  } catch (error) {
+    console.error('S3 Delete Error:', error);
+    return false;
+  }
+};
+
+/**
+ * Delete a file from ImageKit
+ * @param {string} fileUrl - The ImageKit URL or fileId
+ * @returns {Promise<boolean>} - True if deletion was successful
+ */
+const deleteFromImageKit = async (fileUrl) => {
+  try {
+    // Extract fileId from URL if it's a full URL
+    let fileId = fileUrl;
+    if (fileUrl.includes('imagekit.io')) {
+      // Example URL: https://ik.imagekit.io/your_account/folder/filename_fileId
+      const parts = fileUrl.split('/');
+      const lastPart = parts[parts.length - 1];
+      fileId = lastPart.split('_').pop();
+    }
+
+    await imagekit.deleteFile(fileId);
+    return true;
+  } catch (error) {
+    console.error('ImageKit Delete Error:', error);
+    return false;
+  }
+};
+
+/**
+ * Generate a signed URL for an S3 object (for private files)
+ * @param {string} key - The S3 object key
+ * @param {number} expiresIn - Expiration time in seconds
+ * @returns {Promise<string>} - Signed URL
+ */
+export const getSignedFileUrl = async (key, expiresIn = 3600) => {
+  try {
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: key
+    });
+    
+    return await getSignedUrl(s3Client, command, { expiresIn });
+  } catch (error) {
+    console.error('Error generating signed URL:', error);
+    throw new Error(`Error generating signed URL: ${error.message}`);
+  }
+};

@@ -1,4 +1,17 @@
-// server/controllers/adminController.js
+/**
+ * Admin Controller
+ * 
+ * This controller handles all admin-related operations including:
+ * - Admin registration and authentication
+ * - Vendor management and approval
+ * - User management
+ * - Admin profile management
+ * - Token refresh functionality
+ * 
+ * @author Wedding Wire Team
+ * @version 1.0.0
+ */
+
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
@@ -8,7 +21,20 @@ import Vendor from '../models/Vendor.js';
 import { logUserLogin } from '../utils/activityLogger.js';
 import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddleware.js';
 
-// Register Admin
+/**
+ * Register a new admin
+ * 
+ * Creates a new admin account with email verification via OTP.
+ * Sends verification email with 6-digit OTP that expires in 10 minutes.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.body - Request body containing admin details
+ * @param {string} req.body.name - Admin's full name
+ * @param {string} req.body.email - Admin's email address
+ * @param {string} req.body.password - Admin's password (will be hashed)
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with success status and admin ID
+ */
 export const registerAdmin = async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -60,6 +86,19 @@ export const registerAdmin = async (req, res) => {
   }
 };
 
+/**
+ * Verify admin OTP
+ * 
+ * Verifies the OTP sent to admin's email during registration.
+ * Upon successful verification, marks admin as verified and returns JWT token.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.body - Request body
+ * @param {string} req.body.adminId - Admin's database ID
+ * @param {string} req.body.otp - 6-digit OTP code
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with JWT token and admin details
+ */
 export const verifyAdminOtp = async (req, res) => {
   const { adminId, otp } = req.body;
 
@@ -104,6 +143,18 @@ export const verifyAdminOtp = async (req, res) => {
   }
 };
 
+/**
+ * Resend admin OTP
+ * 
+ * Generates and sends a new OTP to admin's email if the previous one expired.
+ * Only works for unverified admin accounts.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.body - Request body
+ * @param {string} req.body.adminId - Admin's database ID
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response confirming OTP resent
+ */
 export const resendAdminOtp = async (req, res) => {
   const { adminId } = req.body;
 
@@ -150,7 +201,19 @@ export const resendAdminOtp = async (req, res) => {
   }
 };
 
-// Login Admin
+/**
+ * Admin login
+ * 
+ * Authenticates admin with email and password.
+ * Returns JWT token and logs the login activity.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.body - Request body
+ * @param {string} req.body.email - Admin's email address
+ * @param {string} req.body.password - Admin's password
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with JWT token and admin details
+ */
 export const loginAdmin = async (req, res) => {
   const { email, password } = req.body;
 
@@ -194,6 +257,19 @@ export const loginAdmin = async (req, res) => {
   }
 };
 
+/**
+ * Update admin profile
+ * 
+ * Updates admin profile information including name, email, phone, profile photo, and password.
+ * Password is hashed before saving if provided.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Request parameters
+ * @param {string} req.params.adminId - Admin's database ID
+ * @param {Object} req.body - Request body with update fields
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with updated admin details
+ */
 export const updateAdminProfile = async (req, res) => {
   const { adminId } = req.params;
   const {
@@ -239,6 +315,18 @@ export const updateAdminProfile = async (req, res) => {
   }
 };
 
+/**
+ * Approve vendor
+ * 
+ * Approves a vendor by setting their isApproved status to true.
+ * Only approved vendors can be displayed to users.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Request parameters
+ * @param {string} req.params.vendorId - Vendor's database ID
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with approved vendor details
+ */
 export const approveVendor = async (req, res) => {
   const { vendorId } = req.params;
 
@@ -263,6 +351,16 @@ export const approveVendor = async (req, res) => {
   }
 };
 
+/**
+ * Get pending vendors
+ * 
+ * Retrieves all vendors that are waiting for admin approval.
+ * Returns vendors with isApproved status set to false.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with array of pending vendors
+ */
 export const getPendingVendors = async (req, res) => {
   try {
     const pendingVendors = await Vendor.find({ isApproved: false });
@@ -281,9 +379,32 @@ export const getPendingVendors = async (req, res) => {
 
 
 
+/**
+ * Get all approved vendors
+ * 
+ * Retrieves all approved vendors with formatted data including location information.
+ * Also returns unique locations from service areas and addresses.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with vendors array and unique locations
+ */
 export const getAllVendors = async (req, res) => {
   try {
-    const vendors = await Vendor.find({ isApproved: true });
+    const { location } = req.query;
+
+    // If location is provided, filter by location
+    const locationFilter = location ? {
+      $or: [
+        { 'address.city': { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } },
+        { serviceAreas: { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } }
+      ]
+    } : {};
+
+    const vendors = await Vendor.find({
+      ...locationFilter,
+      isApproved: true
+    });
 
     // Get unique locations from both serviceAreas and addresses
     const uniqueLocations = new Set();
@@ -302,11 +423,6 @@ export const getAllVendors = async (req, res) => {
       vendorType: vendor.vendorType,
       email: vendor.email,
       phone: vendor.phone,
-      // address: {
-      //   city: vendor.address?.city || '',
-      //   state: vendor.address?.state || '',
-      //   country: vendor.address?.country || 'India'
-      // },
       address:vendor.address || {},
       services: vendor.services || [],
       serviceAreas: vendor.serviceAreas || [],
@@ -333,6 +449,18 @@ export const getAllVendors = async (req, res) => {
   }
 };
 
+/**
+ * Delete vendor by admin
+ * 
+ * Allows admin to delete a vendor from the system.
+ * This is a permanent action and cannot be undone.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Request parameters
+ * @param {string} req.params.vendorId - Vendor's database ID
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response confirming vendor deletion
+ */
 export const deleteVendorByAdmin = async (req, res) => {
   const { vendorId } = req.params;
 
@@ -352,7 +480,16 @@ export const deleteVendorByAdmin = async (req, res) => {
   }
 };
 
-// Get All Users
+/**
+ * Get all users
+ * 
+ * Retrieves all registered users from the system.
+ * Excludes sensitive information like passwords.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with formatted users array
+ */
 export const getAllUsers = async (req, res) => {
   try {
     const users = await User.find().select('-password'); // Exclude sensitive fields
@@ -375,6 +512,18 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
+/**
+ * Delete user by admin
+ * 
+ * Allows admin to delete a user account from the system.
+ * This is a permanent action and cannot be undone.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Request parameters
+ * @param {string} req.params.userId - User's database ID
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response confirming user deletion
+ */
 export const deleteUserByAdmin = async (req, res) => {
   const { userId } = req.params;
 
@@ -394,7 +543,18 @@ export const deleteUserByAdmin = async (req, res) => {
   }
 };
 
-// Get vendor counts by category for a location
+/**
+ * Get vendor counts by location
+ * 
+ * Returns vendor counts grouped by category for a specific location.
+ * Supports 'all-india' as a special location to get counts for all vendors.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.params - Request parameters
+ * @param {string} req.params.location - Location name or 'all-india'
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with category counts and total vendors
+ */
 export const getVendorCountsByLocation = async (req, res) => {
   try {
     const { location } = req.params;
@@ -402,8 +562,8 @@ export const getVendorCountsByLocation = async (req, res) => {
     // If location is 'all-india', don't filter by location
     const locationFilter = location.toLowerCase() === 'all-india' ? {} : {
       $or: [
-        { 'address.city': { $regex: new RegExp(location, 'i') } },
-        { serviceAreas: { $regex: new RegExp(location, 'i') } }
+        { 'address.city': { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } },
+        { serviceAreas: { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } }
       ]
     };
 
@@ -430,7 +590,18 @@ export const getVendorCountsByLocation = async (req, res) => {
   }
 };
 
-// Refresh token endpoint
+/**
+ * Refresh JWT token
+ * 
+ * Generates new access and refresh tokens using a valid refresh token.
+ * Used to maintain user session without requiring re-login.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.body - Request body
+ * @param {string} req.body.refreshToken - Valid refresh token
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with new tokens and admin details
+ */
 export const refreshToken = async (req, res) => {
   try {
     const { refreshToken } = req.body;
@@ -471,6 +642,16 @@ export const refreshToken = async (req, res) => {
   }
 };
 
+/**
+ * Get latest vendors by type
+ * 
+ * Retrieves the most recently added vendor from each vendor type.
+ * Useful for displaying diverse vendor categories on the homepage.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response with latest vendors grouped by type
+ */
 export const getLatestVendorsByType = async (req, res) => {
   try {
     // Get all approved vendors
@@ -523,4 +704,4 @@ export const getLatestVendorsByType = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Error fetching latest vendors", error: error.message });
   }
-};''
+};

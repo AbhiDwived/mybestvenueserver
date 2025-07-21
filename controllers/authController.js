@@ -1,3 +1,15 @@
+/**
+ * Authentication Controller
+ * 
+ * This controller handles authentication-related operations including:
+ * - Password reset functionality for both users and vendors
+ * - OTP verification for password reset
+ * - Email notifications for password reset
+ * 
+ * @author Wedding Wire Team
+ * @version 1.0.0
+ */
+
 import User from '../models/User.js';
 import Vendor from '../models/Vendor.js';
 import nodemailer from 'nodemailer';
@@ -6,6 +18,18 @@ import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
+/**
+ * Initiate forgot password process
+ * 
+ * Generates and sends OTP to user's email for password reset.
+ * Works for both regular users and vendors.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.body - Request body
+ * @param {string} req.body.email - User's email address
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response confirming OTP sent
+ */
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
@@ -60,6 +84,19 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
+/**
+ * Verify password reset OTP
+ * 
+ * Verifies the OTP sent to user's email for password reset.
+ * Clears the OTP fields upon successful verification.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.body - Request body
+ * @param {string} req.body.email - User's email address
+ * @param {string} req.body.otp - 6-digit OTP code
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response confirming OTP verification
+ */
 export const verifyResetOtp = async (req, res) => {
   const { email, otp } = req.body;
 
@@ -93,6 +130,19 @@ export const verifyResetOtp = async (req, res) => {
   }
 };
 
+/**
+ * Reset user password
+ * 
+ * Updates user's password with the new password after OTP verification.
+ * Password is hashed before storing in the database.
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} req.body - Request body
+ * @param {string} req.body.email - User's email address
+ * @param {string} req.body.newPassword - New password to set
+ * @param {Object} res - Express response object
+ * @returns {Object} JSON response confirming password reset
+ */
 export const resetPassword = async (req, res) => {
   const { email, newPassword } = req.body;
 

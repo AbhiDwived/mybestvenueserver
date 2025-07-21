@@ -50,9 +50,9 @@ export const sendEmail = async ({ email, subject, message }) => {
     // Send mail with retries
     const info = await retry(async () => {
       const result = await transporter.sendMail({
-        from: `"MyBestVenue" <${process.env.SMTP_USER}>`,
-        to: email,
-        subject: subject,
+              from: `"MyBestVenue" <${process.env.EMAIL_FROM}>`,
+              to: email,
+              subject: subject,
         text: message,
         html: message.replace(/\n/g, '<br>')
       });

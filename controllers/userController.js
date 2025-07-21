@@ -6,18 +6,12 @@ import inquirySchema from "../models/Inquiry.js";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import Contact from "../models/Contact.js";
-import ImageKit from "imagekit";
 import { logUserLogin } from '../utils/activityLogger.js';
 import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddleware.js';
 import { logger } from '../utils/logger.js';
+import { deleteFile } from '../utils/fileUtils.js';
 
 dotenv.config();
-
-const imagekit = new ImageKit({
-  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT,
-  publicKey: process.env.IMAGEKIT_PUBLIC_KEY,
-  privateKey: process.env.IMAGEKIT_PRIVATE_KEY,
-});
 
 // In-memory store for pending registrations (for demo; use Redis for production)
 const pendingRegistrations = {}; // { [email]: { userData, otp, otpExpires } }
@@ -502,25 +496,18 @@ export const updateProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Handle profile photo - use ImageKit URL if a new file was uploaded
+    // Handle profile photo - use new URL if a file was uploaded
     let profilePhoto = currentUser.profilePhoto;
     if (req.fileUrl) {
-      // If there's a new image uploaded to ImageKit, use its URL
+      // If there's a new image uploaded, use its URL
       profilePhoto = req.fileUrl;
 
-      // If there's an existing ImageKit image, you might want to delete it
-      // This would require extracting the file ID from the old URL and using imagekit.deleteFile()
-      if (
-        currentUser.profilePhoto &&
-        currentUser.profilePhoto.includes("imagekit")
-      ) {
+      // If there's an existing image, delete it
+      if (currentUser.profilePhoto) {
         try {
-          const fileId = getImageKitFileId(currentUser.profilePhoto);
-          if (fileId) {
-            await imagekit.deleteFile(fileId);
-          }
+          await deleteFile(currentUser.profilePhoto);
         } catch (error) {
-          console.error("Error deleting old image from ImageKit:", error);
+          console.error("Error deleting old image:", error);
           // Continue with update even if old image deletion fails
         }
       }
@@ -575,17 +562,7 @@ export const updateProfile = async (req, res) => {
 };
 
 // Helper function to extract file ID from ImageKit URL
-const getImageKitFileId = (url) => {
-  try {
-    const parts = url.split("/");
-    const filename = parts[parts.length - 1];
-    const fileId = filename.split("_").pop();
-    return fileId;
-  } catch (error) {
-    console.error("Error extracting ImageKit file ID:", error);
-    return null;
-  }
-};
+// getImageKitFileId function has been moved to utils/fileUtils.js
 
 // Delete user
 export const deleteUser = async (req, res) => {

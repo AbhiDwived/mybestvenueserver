@@ -96,10 +96,12 @@ export const vendorValidation = {
       'string.empty': 'Phone number is required',
       'string.pattern.base': 'Phone number must be 10 digits'
     }),
-    password: Joi.string().required().min(6).messages({
+    password: Joi.string().required()
+      .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/)
+      .messages({
       'string.empty': 'Password is required',
-      'string.min': 'Password must be at least 6 characters long'
-    }),
+        'string.pattern.base': 'Password must:\n- Be 8-20 characters long\n- Include at least 1 uppercase letter\n- Include at least 1 lowercase letter\n- Include at least 1 number\n- Include at least 1 special character (@$!%*?&)'
+      }),
     address: Joi.object({
       street: Joi.string(),
       city: Joi.string(),

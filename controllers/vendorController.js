@@ -7,6 +7,13 @@ import User from '../models/User.js';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import imagekit from '../config/imagekit.js';
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import s3Client, { S3_BUCKET_NAME } from '../config/s3.js';
+
+dotenv.config();
+
+// Determine which storage service to use
+const STORAGE_TYPE = process.env.STORAGE_TYPE || 'imagekit';
 import Package from '../models/Package.js';
 import FAQ from '../models/Faq.js';
 import Booking from '../models/Booking.js';
@@ -1192,17 +1199,39 @@ export const uploadPortfolioVideo = async (req, res) => {
     // Handle file upload if a file is present
     if (req.file) {
       try {
-        // Upload file to ImageKit
-        const uploadResponse = await imagekit.upload({
-          file: req.file.buffer,
-          fileName: `vendor_portfolio_video_${vendorId}_${Date.now()}`,
-          folder: `/vendors/${vendorId}/portfolio/videos`
-        });
+        if (STORAGE_TYPE === 's3') {
+          // Upload to S3
+          const timestamp = Date.now();
+          const fileName = `vendor_portfolio_video_${vendorId}_${timestamp}`;
+          const folderPath = `vendors/${vendorId}/portfolio/videos`;
+          const key = `${folderPath}/${fileName}`;
 
-        // Use ImageKit URL
-        videoUrl = uploadResponse.url;
+          // Upload to S3
+          const params = {
+            Bucket: S3_BUCKET_NAME,
+            Key: key,
+            Body: req.file.buffer,
+            ContentType: req.file.mimetype
+          };
+
+          const command = new PutObjectCommand(params);
+          await s3Client.send(command);
+
+          // Generate S3 URL
+          videoUrl = `https://${S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
+        } else {
+          // Upload file to ImageKit
+          const uploadResponse = await imagekit.upload({
+            file: req.file.buffer,
+            fileName: `vendor_portfolio_video_${vendorId}_${Date.now()}`,
+            folder: `vendors/${vendorId}/portfolio/videos`
+          });
+
+          // Use ImageKit URL
+          videoUrl = uploadResponse.url;
+        }
       } catch (uploadError) {
-        console.error('Video Upload to ImageKit Error:', uploadError);
+        console.error('Video Upload Error:', uploadError);
         return res.status(500).json({
           success: false,
           message: 'Failed to upload video',
@@ -1327,9 +1356,45 @@ export const deletePortfolioVideo = async (req, res) => {
       });
     }
     
+    // Get the video URL before removing it
+    const videoToDelete = vendor.portfolio.videos[videoIndex];
+    const videoUrl = videoToDelete.url;
+
     // Remove the video from the portfolio
     vendor.portfolio.videos.splice(videoIndex, 1);
     await vendor.save();
+    
+    // Delete the file from storage if it's hosted on our platforms
+    if (videoUrl) {
+      try {
+        if (videoUrl.includes('amazonaws.com')) {
+          // Extract S3 key from URL
+          const urlObj = new URL(videoUrl);
+          const key = urlObj.pathname.substring(1); // Remove leading slash
+          
+          // Delete from S3
+          const params = {
+            Bucket: S3_BUCKET_NAME,
+            Key: key
+          };
+          
+          const command = new DeleteObjectCommand(params);
+          await s3Client.send(command);
+        } else if (videoUrl.includes('imagekit.io')) {
+          // Extract file ID from ImageKit URL
+          const parts = videoUrl.split('/');
+          const lastPart = parts[parts.length - 1];
+          const fileId = lastPart.split('_').pop();
+          
+          if (fileId) {
+            await imagekit.deleteFile(fileId);
+          }
+        }
+      } catch (deleteError) {
+        console.error('Error deleting file from storage:', deleteError);
+        // Continue even if file deletion fails
+      }
+    }
     
     res.status(200).json({
       success: true,

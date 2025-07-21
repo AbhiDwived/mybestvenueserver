@@ -28,7 +28,7 @@ import {
 } from "../controllers/userController.js";
 
 import upload from "../middlewares/upload.js";
-import { uploadToImageKit, setImagePath } from "../middlewares/upload.js";
+import { uploadToImageKit, uploadToStorage, setImagePath } from "../middlewares/upload.js";
 import { VerifyUser } from "../middlewares/authMiddleware.js";
 import { validate, userValidation, contactValidation } from '../middlewares/validation.js';
 import { verifyToken } from "../middlewares/authMiddleware.js";
@@ -37,13 +37,13 @@ import { protect } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Register route with ImageKit upload
+// Register route with storage upload
 router.post(
   "/register",
   validate(userValidation.register),
   upload.single("profilePhoto"),
-  setImagePath("/users"), // Set the folder path for user uploads
-  uploadToImageKit,
+  setImagePath("users"), // Set the folder path for user uploads
+  uploadToStorage, // This will use either S3 or ImageKit based on STORAGE_TYPE
   register
 );
 
@@ -61,14 +61,14 @@ router.post("/reset_password", resetPassword);
 
 router.get("/UserProfile",VerifyUser, getUserProfile);
 
-// Update profile route with ImageKit upload
+// Update profile route with storage upload
 router.put(
   "/update-profile/:userId",
   VerifyUser,
   validate(userValidation.updateProfile),
   upload.single("profilePhoto"),
-  setImagePath("/users"),
-  uploadToImageKit,
+  setImagePath("users"),
+  uploadToStorage, // This will use either S3 or ImageKit based on STORAGE_TYPE
   updateProfile
 );
 
