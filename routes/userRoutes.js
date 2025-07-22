@@ -9,6 +9,7 @@ import {
   forgotPassword,
   verifyPasswordReset,
   resetPassword,
+  resendPasswordResetOtp,
   logout,
   addToWishlist,
   removeFromWishlist,
@@ -58,6 +59,7 @@ router.post("/login", validate(userValidation.login), login);
 router.post("/forgot_password", forgotPassword);
 router.post("/verify_password_reset", verifyPasswordReset);
 router.post("/reset_password", resetPassword);
+router.post("/resend-password-reset-otp", resendPasswordResetOtp);
 
 router.get("/UserProfile",VerifyUser, getUserProfile);
 

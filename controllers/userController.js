@@ -13,7 +13,6 @@ import { deleteFile } from '../utils/fileUtils.js';
 
 dotenv.config();
 
-// In-memory store for pending registrations (for demo; use Redis for production)
 const pendingRegistrations = {}; // { [email]: { userData, otp, otpExpires } }
 
 // Register new user (with email OTP) - only store in DB after OTP verification
@@ -163,77 +162,41 @@ export const resendOtp = async (req, res) => {
   const { email } = req.body;
 
   try {
-    // First, check if there is a pending registration (not yet in DB)
-    if (pendingRegistrations[email]) {
-      // Generate new OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-      pendingRegistrations[email].otp = otp;
-      pendingRegistrations[email].otpExpires = otpExpires;
-
-      // Send OTP via email
-      try {
-        const { sendEmail } = await import('../utils/sendEmail.js');
-        await sendEmail({
-          email: email,
-          subject: "Your New OTP for Registration",
-          message: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
-        });
-        res.status(200).json({
-          message: "New OTP sent to email.",
-          email,
-        });
-      } catch (error) {
-        console.error("Error sending email:", error);
-        return res.status(500).json({ message: "Error sending OTP email" });
-      }
-      return;
+    // Check if there is a pending registration
+    if (!pendingRegistrations[email]) {
+      return res.status(400).json({
+        message: "No pending registration found for this email. Please register first.",
+      });
     }
 
-    // If not in pendingRegistrations, check if user exists in DB and is not verified
-    const user = await User.findOne({ email }).select("+otp +otpExpires +isVerified");
-    if (!user) {
-      return res.status(404).json({ message: "No pending registration or user found. Please register again." });
-    }
-    if (user.isVerified) {
-      return res.status(400).json({ message: "User already verified" });
-    }
-
-    // Generate new OTP for DB user (should rarely happen)
+    // Generate new OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-    user.otp = otp;
-    user.otpExpires = otpExpires;
-    await user.save();
+
+    // Update OTP and expiry in pendingRegistrations
+    pendingRegistrations[email].otp = otp;
+    pendingRegistrations[email].otpExpires = otpExpires;
 
     // Send OTP via email
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+    try {
+      const { sendEmail } = await import('../utils/sendEmail.js');
+      await sendEmail({
+        email: email,
+        subject: "Your New OTP for Registration",
+        message: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
+      });
 
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your New OTP for Registration",
-      text: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error("Error sending email:", error);
-        return res.status(500).json({ message: "Error sending OTP email" });
-      }
-      res.status(200).json({
+      return res.status(200).json({
         message: "New OTP sent to email.",
         email,
       });
-    });
+    } catch (emailError) {
+      console.error("Error sending email:", emailError);
+      return res.status(500).json({ message: "Failed to send OTP email" });
+    }
   } catch (error) {
-    res.status(500).json({ message: "Error resending OTP", error: error.message });
+    console.error("Error in resendOtp:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -281,6 +244,51 @@ export const forgotPassword = async (req, res) => {
   } catch (error) {
     console.error("🚨 Error:", error.message);
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// Resend Password Reset OTP
+export const resendPasswordResetOtp = async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    // Find user in database
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generate new OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Update user with new OTP
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+    user.markModified("otp");
+    user.markModified("otpExpires");
+    await user.save();
+
+    // Send OTP via email
+    try {
+      const { sendEmail } = await import('../utils/sendEmail.js');
+      await sendEmail({
+        email: user.email,
+        subject: "Your New Password Reset OTP",
+        message: `Your new OTP is: ${otp}. It will expire in 10 minutes.`,
+      });
+
+      return res.status(200).json({
+        message: "New password reset OTP sent to email",
+        userId: user._id,
+      });
+    } catch (emailError) {
+      console.error("Error sending email:", emailError);
+      return res.status(500).json({ message: "Failed to send OTP email" });
+    }
+  } catch (error) {
+    console.error("Error in resendPasswordResetOtp:", error);
+    return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -525,9 +533,6 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-// Helper function to extract file ID from ImageKit URL
-// getImageKitFileId function has been moved to utils/fileUtils.js
-
 // Delete user
 export const deleteUser = async (req, res) => {
   const { userId } = req.params;
@@ -627,7 +632,7 @@ export const getWishlist = async (req, res) => {
   }
 };
 
-// ################################### add reply message api ####################################
+//  add reply message 
 export const addUserInquiryMessage = async (req, res) => {
   try {
     // const { userId } = req.params;
@@ -678,8 +683,7 @@ export const addUserInquiryMessage = async (req, res) => {
   }
 };
 
-// ############################### Get userinquiry List api ######################################
-
+//Get userinquiry List api 
 export const getUserInquiryList = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -705,8 +709,7 @@ export const getUserInquiryList = async (req, res) => {
     });
   }
 };
-// ###################################  Update userinquiry api ####################################
-
+//   Update userinquiry api 
 export const updateUserInquiry = async (req, res) => {
   try {
     const { inquiryId } = req.params;
@@ -772,7 +775,6 @@ export const updatePassword = async (req, res) => {
   }
 };
 
-//UserContact
 //submit contact form
 export const submitContactForm = async (req, res) => {
   const { name, email, phone, message } = req.body;
@@ -798,6 +800,7 @@ export const submitContactForm = async (req, res) => {
   }
 };
 
+//getAllMessage
 export const getAllMessage = async (req, res) => {
   try {
     const message = await Contact.find().sort({ createdAt: -1 });
