@@ -13,9 +13,9 @@ import { deleteFile } from '../utils/fileUtils.js';
 
 dotenv.config();
 
-const pendingRegistrations = {}; // { [email]: { userData, otp, otpExpires } }
+const pendingRegistrations = {};
 
-// Register new user (with email OTP) - only store in DB after OTP verification
+// Register new user with email OTP verification
 export const register = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
@@ -85,7 +85,7 @@ export const register = async (req, res) => {
   }
 };
 
-// Verify OTP and complete registration (create user in DB only after OTP is verified)
+// Verify OTP and complete user registration
 export const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
 
@@ -157,7 +157,8 @@ export const verifyOtp = async (req, res) => {
   }
 };
 
-// Resend OTP
+
+ // Resend registration OTP sends a new OTP for registration verification
 export const resendOtp = async (req, res) => {
   const { email } = req.body;
 
@@ -200,7 +201,7 @@ export const resendOtp = async (req, res) => {
   }
 };
 
-// forgotPassword
+ // Initiate password reset process Sends OTP to user's email for password reset
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
@@ -247,7 +248,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// Resend Password Reset OTP
+// Resend password reset OTP Generates and sends a new OTP for password reset
 export const resendPasswordResetOtp = async (req, res) => {
   const { userId } = req.body;
 
@@ -292,7 +293,7 @@ export const resendPasswordResetOtp = async (req, res) => {
   }
 };
 
-// verifyPasswordReset
+// Verify password reset OTP
 export const verifyPasswordReset = async (req, res) => {
   const { userId, otp } = req.body;
 
@@ -323,7 +324,7 @@ export const verifyPasswordReset = async (req, res) => {
   }
 };
 
-// resetPassword
+// Reset user password Resets user password after OTP verification
 export const resetPassword = async (req, res) => {
   const { userId, newPassword } = req.body;
 
@@ -357,7 +358,7 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// Login user
+// User login
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -407,7 +408,7 @@ export const login = async (req, res) => {
   }
 };
 
-//getUserProfile
+// Get user profile
 export const getUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select(
@@ -533,7 +534,7 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-// Delete user
+// Delete user account
 export const deleteUser = async (req, res) => {
   const { userId } = req.params;
 
@@ -554,7 +555,7 @@ export const deleteUser = async (req, res) => {
   }
 };
 
-// Logout user
+// User logout
 export const logout = async (req, res) => {
   try {
     res.status(200).json({
@@ -567,7 +568,7 @@ export const logout = async (req, res) => {
   }
 };
 
-// Add venue to user's wishlist
+// Add venue to wishlist
 export const addToWishlist = async (req, res) => {
   const userId = req.user.id;
   const { venueId } = req.params;
@@ -632,7 +633,7 @@ export const getWishlist = async (req, res) => {
   }
 };
 
-//  add reply message 
+// Add user inquiry message
 export const addUserInquiryMessage = async (req, res) => {
   try {
     // const { userId } = req.params;
@@ -683,7 +684,7 @@ export const addUserInquiryMessage = async (req, res) => {
   }
 };
 
-//Get userinquiry List api 
+// Get user inquiry list
 export const getUserInquiryList = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -709,7 +710,7 @@ export const getUserInquiryList = async (req, res) => {
     });
   }
 };
-//   Update userinquiry api 
+// Update user inquiry
 export const updateUserInquiry = async (req, res) => {
   try {
     const { inquiryId } = req.params;
@@ -775,7 +776,8 @@ export const updatePassword = async (req, res) => {
   }
 };
 
-//submit contact form
+// Submit contact form
+ 
 export const submitContactForm = async (req, res) => {
   const { name, email, phone, message } = req.body;
 
@@ -800,7 +802,7 @@ export const submitContactForm = async (req, res) => {
   }
 };
 
-//getAllMessage
+// Get all contact messages
 export const getAllMessage = async (req, res) => {
   try {
     const message = await Contact.find().sort({ createdAt: -1 });
@@ -810,7 +812,7 @@ export const getAllMessage = async (req, res) => {
   }
 };
 
-// Refresh token endpoint
+// Refresh authentication token
 export const refreshToken = async (req, res) => {
   try {
     const { refreshToken } = req.body;
