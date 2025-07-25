@@ -568,92 +568,84 @@ export const getVendorById = async (req, res) => {
 // ############################### addUserInquiry Reply by vendor ###############################
 
 
-export const addUserInquiryReply = async (req, res) => {
+export const addVendorReplyToInquiry = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const { message, userId, messageId } = req.body;
+    const { userId, replyMessage } = req.body;
 
-    if (!vendorId || !userId || !messageId || !message) {
+    if (!vendorId || !userId || !replyMessage) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Ensure vendor exists
-    const vendorCheck = await Vendor.findById(vendorId);
-    if (!vendorCheck) {
-      return res.status(404).json({ message: "Vendor not found" });
+    // Find the inquiry
+    const inquiry = await inquirySchema.findOne({ vendorId, userId });
+
+    if (!inquiry || !inquiry.userMessage.length) {
+      return res.status(404).json({ message: "No inquiry found to reply" });
     }
 
-    // Find the inquiry with that user and message ID
-    
-    const inquiry = await inquirySchema.findOneAndUpdate(
-      {
-        vendorId: vendorId,
-        userId: userId,
-        "userMessage._id": messageId
-      },
-      {
-        $set: {
-          "userMessage.$[elem].vendorReply": {
-            message: message,
-          },
-          replyStatus: "Replied"
-        }
-      },
-      {
-        arrayFilters: [
-          { "elem._id": messageId }
-        ],
-        new: true
-      }
-    );
+    // Find the last user message that exists
+    const lastUserMessage = [...inquiry.userMessage].reverse().find(msg => msg.message);
 
-
-    
-    if (!inquiry) {
-      return res.status(404).json({ message: "Inquiry not found for the messageId" });
+    if (!lastUserMessage) {
+      return res.status(400).json({ message: "No user message found to reply" });
     }
 
-
-
-    res.status(200).json({
-      message: "Vendor reply saved successfully",
-      data: inquiry
+    // Push new reply to the vendorReply array
+    lastUserMessage.vendorReply.push({
+      message: replyMessage,
+      createdAt: new Date()
     });
 
+    // Update reply status
+    inquiry.replyStatus = "Replied";
+    await inquiry.save();
+
+    res.status(200).json({ message: "Vendor reply saved", result: inquiry });
   } catch (error) {
-    console.log("error", error)
-    res.status(500).json({
-      message: "Error saving vendor reply",
-      error: error.message
-    });
+    console.error("Reply Save Error:", error);
+    res.status(500).json({ message: "Error saving reply", error: error.message });
   }
 };
 
 
-// Get Vendorreplied Inquiry List
+
+
+
+
 export const getVendorRepliedInquiryList = async (req, res) => {
   try {
-    // Get vendorId from authenticated user
-    const vendorId = req.user.id;
+    // Extract vendorId from route params
+    const { vendorId } = req.params;
 
     if (!vendorId) {
-      return res.status(401).json({ message: 'Unauthorized: Vendor ID not found' });
+      return res.status(400).json({ message: 'Vendor ID is required in params' });
     }
 
-    const userInquiryList = await inquirySchema.find({ vendorId })
-      .sort({ createdAt: -1 })
-      .populate('userId', 'name');
+    // Fetch all inquiries for this vendor where replyStatus is "Replied"
+    const userInquiryList = await inquirySchema
+      .find({ vendorId, })
+      .sort({ updatedAt: -1 }) // most recent first
+      .populate('userId', 'name'); // populate only the name from userId
 
+    // Format the response to include user name
     const modifiedList = userInquiryList.map((inquiry) => ({
       ...inquiry.toObject(),
       name: inquiry.userId?.name || null,
       userId: inquiry.userId?._id || null
     }));
-    
-    res.status(200).json({ message: 'Vendor reply list fetched successfully', modifiedList });
+
+    res.status(200).json({
+      message: 'Vendor replied inquiry list fetched successfully',
+      data: modifiedList,
+      inquiryCount: modifiedList.length
+    });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error fetching user inquiry list', error: error.message });
+    console.error("Error in getVendorRepliedInquiryList:", error);
+    res.status(500).json({
+      message: 'Error fetching vendor inquiry list',
+      error: error.message
+    });
   }
 };
 

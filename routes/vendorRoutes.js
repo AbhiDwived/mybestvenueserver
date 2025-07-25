@@ -13,7 +13,8 @@ import {
   updateVendorProfile,
   deleteVendor,
   getVendorById,
-  addUserInquiryReply,
+  addVendorReplyToInquiry,
+  
   getVendorRepliedInquiryList,
   addServicesPackage,
   getAllServicesPackages,
@@ -36,7 +37,8 @@ import {
   getlatestVendorTypeData,
   deletePricingList,
   deleteFaq,
-  getSimilarVendors
+  getSimilarVendors,
+
 } from '../controllers/vendorController.js';
 import { forgotPassword, verifyResetOtp, resetPassword } from '../controllers/authController.js';
 
@@ -118,10 +120,11 @@ router.delete('/delete/:vendorId', VerifyAdmin, deleteVendor);
 router.get('/vendorbyId/:vendorId', getVendorById);
 
 // Handle user inquiry replies
-router.post('/inquiry-reply/:vendorId', VerifyVendor, addUserInquiryReply);
+
+router.post('/inquiry-reply/:vendorId', VerifyVendor, addVendorReplyToInquiry);
 
 // Get vendor's replied inquiries
-router.get('/replied-inquiries', VerifyVendor, getVendorRepliedInquiryList);
+router.get('/replied-inquiries/:vendorId', VerifyVendor, getVendorRepliedInquiryList);
 
 
 // Packages routes
@@ -133,7 +136,7 @@ router.delete('/updateservicesPackage/:packageId', VerifyVendor,deleteServicePac
 
 // Faqs routes
 router.post("/addfaq",VerifyVendor,addFaq);
-router.get("/getfaqsbyVendor/:vendorId",VerifyVendor,getVendorsFaqs);
+router.get("/getfaqsbyVendor/:vendorId",getVendorsFaqs);
 router.delete("/deletefaq/:vendorId/:faqId",VerifyVendor,deleteFaq);
 
 // Update vendor pricing range
@@ -190,5 +193,6 @@ router.get('/getSimilarVendors/:vendorId',getSimilarVendors);
 
 // Similar Vendors List 
 router.get("/getSimilarVendors/:vendorId",getSimilarVendors);
+
 
 export default router;

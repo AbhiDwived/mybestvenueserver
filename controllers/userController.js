@@ -13,9 +13,9 @@ import { deleteFile } from '../utils/fileUtils.js';
 
 dotenv.config();
 
-const pendingRegistrations = {};
+const pendingRegistrations = {}; // { [email]: { userData, otp, otpExpires } }
 
-// Register new user with email OTP verification
+// Register new user (with email OTP) - only store in DB after OTP verification
 export const register = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
@@ -85,7 +85,7 @@ export const register = async (req, res) => {
   }
 };
 
-// Verify OTP and complete user registration
+// Verify OTP and complete registration (create user in DB only after OTP is verified)
 export const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
 
@@ -157,8 +157,7 @@ export const verifyOtp = async (req, res) => {
   }
 };
 
-
- // Resend registration OTP sends a new OTP for registration verification
+// Resend OTP
 export const resendOtp = async (req, res) => {
   const { email } = req.body;
 
@@ -201,7 +200,7 @@ export const resendOtp = async (req, res) => {
   }
 };
 
- // Initiate password reset process Sends OTP to user's email for password reset
+// forgotPassword
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
@@ -248,7 +247,7 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-// Resend password reset OTP Generates and sends a new OTP for password reset
+// Resend Password Reset OTP
 export const resendPasswordResetOtp = async (req, res) => {
   const { userId } = req.body;
 
@@ -293,7 +292,7 @@ export const resendPasswordResetOtp = async (req, res) => {
   }
 };
 
-// Verify password reset OTP
+// verifyPasswordReset
 export const verifyPasswordReset = async (req, res) => {
   const { userId, otp } = req.body;
 
@@ -324,7 +323,7 @@ export const verifyPasswordReset = async (req, res) => {
   }
 };
 
-// Reset user password Resets user password after OTP verification
+// resetPassword
 export const resetPassword = async (req, res) => {
   const { userId, newPassword } = req.body;
 
@@ -358,7 +357,7 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// User login
+// Login user
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -408,7 +407,7 @@ export const login = async (req, res) => {
   }
 };
 
-// Get user profile
+//getUserProfile
 export const getUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select(
@@ -534,7 +533,7 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-// Delete user account
+// Delete user
 export const deleteUser = async (req, res) => {
   const { userId } = req.params;
 
@@ -555,7 +554,7 @@ export const deleteUser = async (req, res) => {
   }
 };
 
-// User logout
+// Logout user
 export const logout = async (req, res) => {
   try {
     res.status(200).json({
@@ -568,7 +567,7 @@ export const logout = async (req, res) => {
   }
 };
 
-// Add venue to wishlist
+// Add venue to user's wishlist
 export const addToWishlist = async (req, res) => {
   const userId = req.user.id;
   const { venueId } = req.params;
@@ -633,58 +632,51 @@ export const getWishlist = async (req, res) => {
   }
 };
 
-// Add user inquiry message
+
 export const addUserInquiryMessage = async (req, res) => {
   try {
-    // const { userId } = req.params;
-    const {userId, message, vendorId,name,email,phone,weddingDate } = req.body;
+    const { userId } = req.params;
+    const { vendorId, message, name, email, phone, weddingDate } = req.body;
 
-    const userCheck = await User.findOne({ _id: userId });
-    // console.log("userCheck",userCheck)
-    if (!userCheck) {
-      return res.status(404).json({ message: "User not found" });
+    if (!userId || !vendorId || !message || !message.trim()) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Check if an inquiry already exists
+    const userCheck = await User.findById(userId);
+    if (!userCheck) return res.status(404).json({ message: "User not found" });
+
     let inquiry = await inquirySchema.findOne({ userId, vendorId });
 
-    const messageEntry = {
-      message: message,
+    const newMessage = {
+      message: message.trim()
     };
 
     if (inquiry) {
-      // Add new message to existing inquiry
-      inquiry.userMessage.push(messageEntry);
+      inquiry.userMessage.push(newMessage);
+      inquiry.replyStatus = "Pending";
       await inquiry.save();
     } else {
-      // Create a new inquiry
       inquiry = await inquirySchema.create({
-        // name: userCheck.name,
-        // email: userCheck.email,
+        userId,
+        vendorId,
         name,
         email,
         phone,
-        weddingDate,
-        userId,
-        vendorId,
-        userMessage: [messageEntry],
+        eventDate: weddingDate,
+        userMessage: [newMessage],
+        replyStatus: "Pending"
       });
     }
 
-    res.status(200).json({
-      message: "User inquiry saved successfully",
-      result: inquiry,
-    });
+    res.status(200).json({ message: "User inquiry saved", result: inquiry });
   } catch (error) {
-    console.log("error",error);
-    res.status(500).json({
-      message: "Error saving user inquiry",
-      error: error.message,
-    });
+    console.error("Inquiry Save Error:", error);
+    res.status(500).json({ message: "Error saving inquiry", error: error.message });
   }
 };
 
-// Get user inquiry list
+
+//Get userinquiry List api 
 export const getUserInquiryList = async (req, res) => {
   try {
     const { userId } = req.body;
@@ -710,7 +702,7 @@ export const getUserInquiryList = async (req, res) => {
     });
   }
 };
-// Update user inquiry
+//   Update userinquiry api 
 export const updateUserInquiry = async (req, res) => {
   try {
     const { inquiryId } = req.params;
@@ -776,8 +768,7 @@ export const updatePassword = async (req, res) => {
   }
 };
 
-// Submit contact form
- 
+//submit contact form
 export const submitContactForm = async (req, res) => {
   const { name, email, phone, message } = req.body;
 
@@ -802,7 +793,7 @@ export const submitContactForm = async (req, res) => {
   }
 };
 
-// Get all contact messages
+//getAllMessage
 export const getAllMessage = async (req, res) => {
   try {
     const message = await Contact.find().sort({ createdAt: -1 });
@@ -812,7 +803,7 @@ export const getAllMessage = async (req, res) => {
   }
 };
 
-// Refresh authentication token
+// Refresh token endpoint
 export const refreshToken = async (req, res) => {
   try {
     const { refreshToken } = req.body;

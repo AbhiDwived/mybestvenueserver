@@ -91,7 +91,7 @@ router.put("/updateuser_inquiry/:inquiryId", VerifyUser, updateUserInquiry);
 router.post("/getuser_inquiryList", VerifyUser, getUserInquiryList);
 
 // ########### reply route #######################
-router.post("/userInquiryMessage",  addUserInquiryMessage);
+router.post("/userInquiryMessage/:userId",  addUserInquiryMessage);
 
 router.put("/update-password/:userId", updatePassword);
 
