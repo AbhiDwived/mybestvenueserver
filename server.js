@@ -44,8 +44,29 @@ if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
+// Request monitoring middleware
+const requestMonitor = (req, res, next) => {
+  const start = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    
+    if (duration > 5000) {
+      logger.warn('Slow request:', {
+        method: req.method,
+        url: req.url,
+        duration: `${duration}ms`,
+        status: res.statusCode
+      });
+    }
+  });
+  
+  next();
+};
+
 // Use Morgan for HTTP request logging
 const app = express();
+app.use(requestMonitor);
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('combined', { stream }));
 }
@@ -85,10 +106,41 @@ app.use(helmet({
 // Enable compression for all responses
 app.use(compression());
 
-// Trust proxy for secure cookies in production
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1);
-}
+// Trust proxy for load balancer
+app.set('trust proxy', 1);
+
+// Add process ID to responses for debugging
+app.use((req, res, next) => {
+  res.setHeader('X-Process-ID', process.pid);
+  next();
+});
+
+let memoryInterval;
+
+// Memory management with cleanup
+const startMemoryMonitoring = () => {
+  if (memoryInterval) clearInterval(memoryInterval);
+  
+  memoryInterval = setInterval(() => {
+    const used = process.memoryUsage();
+    const heapUsedMB = Math.round(used.heapUsed / 1024 / 1024);
+    
+    if (heapUsedMB > 500) {
+      logger.warn(`High memory usage: ${heapUsedMB}MB`);
+      if (global.gc) {
+        global.gc();
+        logger.info('Forced garbage collection');
+      }
+    }
+    
+    logger.info('Memory usage:', {
+      rss: `${Math.round(used.rss / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(used.heapTotal / 1024 / 1024)}MB`,
+      heapUsed: `${heapUsedMB}MB`,
+      external: `${Math.round(used.external / 1024 / 1024)}MB`
+    });
+  }, 300000);
+};
 
 // Global uncaught exception handler
 process.on('uncaughtException', (err) => {
@@ -96,45 +148,54 @@ process.on('uncaughtException', (err) => {
     stack: err.stack,
     timestamp: new Date().toISOString()
   });
-  // Give the server time to handle existing connections before exiting
-  setTimeout(() => {
-    process.exit(1);
-  }, 1000);
+  if (memoryInterval) clearInterval(memoryInterval);
+  process.exit(1);
 });
 
 // Global unhandled rejection handler
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', {
+  logger.error('Unhandled Rejection:', {
     promise: promise,
     reason: reason,
     timestamp: new Date().toISOString()
   });
-  // Don't exit the process, just log the error
 });
 
-// Monitor memory usage and log it
-setInterval(() => {
-  const used = process.memoryUsage();
-  logger.info('Memory usage:', {
-    rss: `${Math.round(used.rss / 1024 / 1024)}MB`,
-    heapTotal: `${Math.round(used.heapTotal / 1024 / 1024)}MB`,
-    heapUsed: `${Math.round(used.heapUsed / 1024 / 1024)}MB`,
-    external: `${Math.round(used.external / 1024 / 1024)}MB`
+// Graceful shutdown handlers
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  if (memoryInterval) clearInterval(memoryInterval);
+  mongoose.connection.close(() => {
+    process.exit(0);
   });
-}, 300000); // Log every 5 minutes
+});
 
-// Adjust rate limits to be more generous
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  if (memoryInterval) clearInterval(memoryInterval);
+  mongoose.connection.close(() => {
+    process.exit(0);
+  });
+});
+
+startMemoryMonitoring();
+
+// Optimized rate limits
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // Increased from 100 to 500
-  message: 'Too many requests from this IP, please try again later.'
+  max: 1000, // Increased to 1000 requests
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
-// Stricter rate limits for auth routes
+// Auth rate limits
 const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20, // Increased from 5 to 20
-  message: 'Too many login attempts, please try again later.'
+  max: 50, // Increased to 50 attempts
+  message: 'Too many login attempts, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
 });
 app.use('/api/', limiter);
 app.use('/api/v1/auth/login', authLimiter);
@@ -168,10 +229,19 @@ app.use(
   })
 );
 
-// Add timeout middleware (30 seconds)
-app.use(timeout('30s'));
+// Add timeout middleware (60 seconds)
+app.use(timeout('60s'));
 app.use((req, res, next) => {
-  if (!req.timedout) next();
+  if (!req.timedout) {
+    next();
+  } else {
+    logger.error('Request timeout:', {
+      url: req.url,
+      method: req.method,
+      ip: req.ip
+    });
+    res.status(408).json({ message: 'Request timeout' });
+  }
 });
 
 // Increase payload limits with conditions
@@ -234,14 +304,24 @@ app.get('/', (req, res) => {
   res.send('API Running');
 });
 
-// Health check endpoint
+// Enhanced health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({
+  const memUsage = process.memoryUsage();
+  const health = {
     status: 'healthy',
     timestamp: new Date(),
     uptime: process.uptime(),
-    memoryUsage: process.memoryUsage(),
-  });
+    memory: {
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+    },
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    environment: process.env.NODE_ENV
+  };
+  
+  const statusCode = health.database === 'connected' ? 200 : 503;
+  res.status(statusCode).json(health);
 });
 
 const PORT = process.env.PORT || 5000;

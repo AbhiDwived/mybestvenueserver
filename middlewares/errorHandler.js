@@ -1,8 +1,29 @@
 // Import the logger
 import { logger } from '../utils/logger.js';
 
+// Error tracking
+let errorCount = 0;
+let errorResetInterval;
+
+const trackError = (error, req) => {
+  errorCount++;
+  
+  if (!errorResetInterval) {
+    errorResetInterval = setInterval(() => {
+      errorCount = 0;
+    }, 60000);
+  }
+  
+  if (errorCount > 10) {
+    logger.error(`HIGH ERROR RATE: ${errorCount} errors in last minute`);
+  }
+};
+
 // Custom error handler middleware
 const errorHandler = (err, req, res, next) => {
+  // Track error
+  trackError(err, req);
+  
   // Log error details with logger instead of console
   logger.error('Error occurred:', {
     timestamp: new Date().toISOString(),

@@ -1,12 +1,16 @@
 // config/db.js
 import mongoose from 'mongoose';
 
-const connectDB = async () => {
+const connectDB = async (retryCount = 0) => {
+  const MAX_RETRIES = 5;
   try {
     const options = {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
       connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      maxIdleTimeMS: 30000,
       retryWrites: true,
       retryReads: true
     };
@@ -16,18 +20,25 @@ const connectDB = async () => {
 
     mongoose.connection.on('error', err => {
       console.error('MongoDB connection error:', err);
-      // Don't exit process, try to reconnect instead
     });
 
     mongoose.connection.on('disconnected', () => {
-      console.log('MongoDB disconnected. Attempting to reconnect...');
-      setTimeout(connectDB, 5000); // Try to reconnect after 5 seconds
+      if (retryCount < MAX_RETRIES) {
+        console.log(`MongoDB disconnected. Retry ${retryCount + 1}/${MAX_RETRIES}`);
+        setTimeout(() => connectDB(retryCount + 1), 5000 * (retryCount + 1));
+      } else {
+        console.error('Max reconnection attempts reached. Server needs restart.');
+        process.exit(1);
+      }
     });
 
   } catch (error) {
-    console.error('MongoDB connection failed:', error.message);
-    // Don't exit process immediately, try to reconnect
-    setTimeout(connectDB, 5000); // Try to reconnect after 5 seconds
+    if (retryCount < MAX_RETRIES) {
+      setTimeout(() => connectDB(retryCount + 1), 5000 * (retryCount + 1));
+    } else {
+      console.error('MongoDB connection failed permanently:', error.message);
+      process.exit(1);
+    }
   }
 };
 
