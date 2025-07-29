@@ -49,7 +49,7 @@ export const createBlog = async (req, res) => {
             excerpt,
             category,
             author: vendorId,
-            image: `/uploads/blogs/${req.file.filename}`
+            image: req.file.location || `/uploads/blogs/${req.file.filename}`
         });
 
         await blog.save();
@@ -251,7 +251,7 @@ export const updateBlog = async (req, res) => {
 
         // If new image is uploaded, update the image path
         if (req.file) {
-            updateData.image = `/uploads/blogs/${req.file.filename}`;
+            updateData.image = req.file.location || `/uploads/blogs/${req.file.filename}`;
         }
 
         const blog = await Blog.findByIdAndUpdate(

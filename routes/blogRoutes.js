@@ -1,5 +1,6 @@
 import express from 'express';
 import upload from '../middlewares/upload.js';
+import { uploadToStorage } from '../middlewares/imageKitUpload.js';
 
 import {
     createBlog,
@@ -26,6 +27,12 @@ router.post('/create',
     VerifyVendor, 
     CheckVendorApproval,
     upload.single('image'),
+    (req, res, next) => {
+        // Set the folder path for blog images
+        req.imagePath = 'blogs';
+        next();
+    },
+    uploadToStorage,
     createBlog
 );
 
@@ -33,6 +40,12 @@ router.put('/updateblog/:id',
     VerifyVendor,
     CheckVendorApproval,
     upload.single('image'),
+    (req, res, next) => {
+        // Set the folder path for blog images
+        req.imagePath = 'blogs';
+        next();
+    },
+    uploadToStorage,
     updateBlog
 );
 

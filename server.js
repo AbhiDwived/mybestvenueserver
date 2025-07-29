@@ -23,6 +23,7 @@ import guestRoutes from './routes/guestRoutes.js';
 import subscriberRoutes from './routes/subscriberRoutes.js';
 import sitemapRoutes from './routes/sitemapRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
+import uploadRoutes from './routes/uploadRoutes.js';
 import timeout from 'connect-timeout';
 import compression from 'compression';
 import morgan from 'morgan';
@@ -295,6 +296,7 @@ app.use('/api/v1/subscriber', subscriberRoutes);
 app.use('/api/v1/events', eventRoutes);
 app.use('/api/v1/inquiries', inquiryRoutes);
 app.use('/api/v1/reviews', reviewRoutes);
+app.use('/api/v1/upload', uploadRoutes);
 
 // Error Handling Middleware (should be last)
 app.use(errorHandler);
