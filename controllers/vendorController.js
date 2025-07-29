@@ -1458,3 +1458,51 @@ export const getSimilarVendors = async (req, res) => {
 };
 
 
+// Search Vendor by city
+export const VendorsByCity = async (req, res) => {
+  try {
+    const { city } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = 20;
+
+    if (!city || typeof city !== 'string') {
+      return res.status(400).json({ msg: 'City is required and must be a string' });
+    }
+
+
+    const normalizedInput = city.trim().toLowerCase().replace(/\s/g, '');
+
+
+    const regex = new RegExp(`^${normalizedInput.split('').join('\\s*')}$`, 'i');
+
+    const vendors = await Vendor.find({
+      city: { $regex: regex }
+    })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const total = await Vendor.countDocuments({
+      city: { $regex: regex }
+    });
+
+    
+
+    if (vendors.length === 0) {
+      return res.status(404).json({ msg:`No vendors found for ${city}` });
+    }
+
+    res.status(200).json({
+      msg: `Vendors found for ${city}`,
+      vendors,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Error in VendorsByCity:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

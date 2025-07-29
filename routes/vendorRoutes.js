@@ -38,7 +38,12 @@ import {
   deletePricingList,
   deleteFaq,
   getSimilarVendors,
+  VendorsByCity,
+  deletevendorByServicesArea,
 
+  // getCountries,
+  // getStates,
+  // getCities,
 } from '../controllers/vendorController.js';
 import { forgotPassword, verifyResetOtp, resetPassword } from '../controllers/authController.js';
 
@@ -194,5 +199,7 @@ router.get('/getSimilarVendors/:vendorId',getSimilarVendors);
 // Similar Vendors List 
 router.get("/getSimilarVendors/:vendorId",getSimilarVendors);
 
+// vendor city wise search 
+router.get("/Vendor/:city",VendorsByCity);
 
 export default router;

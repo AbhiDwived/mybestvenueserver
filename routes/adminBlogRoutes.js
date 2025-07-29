@@ -8,7 +8,10 @@ import {
     updateBlog,
     deleteBlog,
     getBlogsByCategory,
-    searchBlogs
+    searchBlogs,
+    uploadEditorImage,
+    generateTOC,
+    getBlogWithTOC
 } from '../controllers/adminBlogController.js';
 import { VerifyAdmin } from '../middlewares/authMiddleware.js';
 
@@ -17,8 +20,10 @@ const router = express.Router();
 // Public routes
 router.get('/getallblogs', getAllBlogs);
 router.get('/getblog/:id', getBlogById);
+router.get('/getblog-toc/:id', getBlogWithTOC);
 router.get('/category/:name', getBlogsByCategory);
 router.get('/search', searchBlogs);
+router.post('/generate-toc', generateTOC);
 
 // Protected routes (admin only)
 router.post('/create',
@@ -38,6 +43,14 @@ router.put('/updateblog/:id',
 router.delete('/deleteblog/:id',
     VerifyAdmin,
     deleteBlog
+);
+
+// Rich text editor image upload
+router.post('/upload-editor-image',
+    VerifyAdmin,
+    upload.single('image'),
+    uploadToStorage,
+    uploadEditorImage
 );
 
 export default router;

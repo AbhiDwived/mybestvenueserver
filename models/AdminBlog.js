@@ -31,6 +31,30 @@ const adminBlogSchema = new mongoose.Schema(
             type: String,
             required: [true, 'Content is required']
         },
+        richContent: {
+            type: mongoose.Schema.Types.Mixed,
+            default: null
+        },
+        tableOfContents: {
+            type: Boolean,
+            default: false
+        },
+        readingTime: {
+            type: Number,
+            default: 0
+        },
+        seoTitle: {
+            type: String,
+            maxlength: 60
+        },
+        seoDescription: {
+            type: String,
+            maxlength: 160
+        },
+        seoKeywords: [{
+            type: String,
+            trim: true
+        }],
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Admin',

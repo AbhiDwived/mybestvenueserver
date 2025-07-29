@@ -18,11 +18,47 @@ const getImageKitFileId = (url) => {
     }
 };
 
+// Helper function to calculate reading time
+const calculateReadingTime = (content) => {
+    const wordsPerMinute = 200;
+    const words = content.replace(/<[^>]*>/g, '').split(/\s+/).length;
+    return Math.ceil(words / wordsPerMinute);
+};
+
+// Helper function to generate table of contents
+const generateTableOfContents = (content) => {
+    const headingRegex = /<h([1-6]).*?>(.*?)<\/h[1-6]>/gi;
+    const headings = [];
+    let match;
+    
+    while ((match = headingRegex.exec(content)) !== null) {
+        headings.push({
+            level: parseInt(match[1]),
+            text: match[2].replace(/<[^>]*>/g, ''),
+            id: match[2].replace(/<[^>]*>/g, '').toLowerCase().replace(/\s+/g, '-')
+        });
+    }
+    
+    return headings;
+};
+
 // Create a new blog post
 export const createBlog = async (req, res) => {
     try {
-        const { title, category, excerpt, content } = req.body;
-        const imageUrl = req.imageUrl; // Get ImageKit URL from middleware
+        const { 
+            title, 
+            category, 
+            excerpt, 
+            content, 
+            richContent,
+            tableOfContents,
+            seoTitle,
+            seoDescription,
+            seoKeywords,
+            tags,
+            status = 'Published'
+        } = req.body;
+        const imageUrl = req.imageUrl;
 
         // Validate required fields
         if (!title || !category || !excerpt || !content || !imageUrl) {
@@ -48,15 +84,25 @@ export const createBlog = async (req, res) => {
             });
         }
 
+        // Calculate reading time
+        const readingTime = calculateReadingTime(content);
+
         const newBlog = await AdminBlog.create({
             title,
             category,
-            featuredImage: imageUrl, // Use ImageKit URL
+            featuredImage: imageUrl,
             excerpt,
             content,
+            richContent: richContent ? JSON.parse(richContent) : null,
+            tableOfContents: tableOfContents === 'true',
+            readingTime,
+            seoTitle: seoTitle || title,
+            seoDescription: seoDescription || excerpt,
+            seoKeywords: seoKeywords ? seoKeywords.split(',').map(k => k.trim()) : [],
+            tags: tags ? tags.split(',').map(t => t.trim()) : [],
             createdBy: admin._id,
             createdByModel: 'Admin',
-            status: 'Published'
+            status
         });
 
         res.status(201).json({
@@ -124,12 +170,33 @@ export const getBlogById = async (req, res) => {
 // Update a blog post
 export const updateBlog = async (req, res) => {
     try {
-        const { title, category, excerpt, content } = req.body;
+        const { 
+            title, 
+            category, 
+            excerpt, 
+            content,
+            richContent,
+            tableOfContents,
+            seoTitle,
+            seoDescription,
+            seoKeywords,
+            tags,
+            status
+        } = req.body;
+        
         const updateData = {
             title,
             category,
             excerpt,
-            content
+            content,
+            richContent: richContent ? JSON.parse(richContent) : null,
+            tableOfContents: tableOfContents === 'true',
+            readingTime: calculateReadingTime(content),
+            seoTitle: seoTitle || title,
+            seoDescription: seoDescription || excerpt,
+            seoKeywords: seoKeywords ? seoKeywords.split(',').map(k => k.trim()) : [],
+            tags: tags ? tags.split(',').map(t => t.trim()) : [],
+            status: status || 'Published'
         };
 
         const blog = await AdminBlog.findById(req.params.id);
@@ -276,6 +343,95 @@ export const searchBlogs = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error searching blogs',
+            error: error.message
+        });
+    }
+};
+
+// Upload image for rich text editor
+export const uploadEditorImage = async (req, res) => {
+    try {
+        if (!req.imageUrl) {
+            return res.status(400).json({
+                success: false,
+                message: 'No image uploaded'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Image uploaded successfully',
+            url: req.imageUrl
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error uploading image',
+            error: error.message
+        });
+    }
+};
+
+// Generate table of contents from content
+export const generateTOC = async (req, res) => {
+    try {
+        const { content } = req.body;
+        
+        if (!content) {
+            return res.status(400).json({
+                success: false,
+                message: 'Content is required'
+            });
+        }
+
+        const toc = generateTableOfContents(content);
+        
+        res.status(200).json({
+            success: true,
+            tableOfContents: toc
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error generating table of contents',
+            error: error.message
+        });
+    }
+};
+
+// Get blog with table of contents
+export const getBlogWithTOC = async (req, res) => {
+    try {
+        const blog = await AdminBlog.findById(req.params.id)
+            .populate('createdBy', 'name email');
+
+        if (!blog) {
+            return res.status(404).json({
+                success: false,
+                message: 'Blog not found'
+            });
+        }
+
+        // Generate TOC if enabled
+        let tableOfContents = null;
+        if (blog.tableOfContents) {
+            tableOfContents = generateTableOfContents(blog.content);
+        }
+
+        // Increment views
+        await blog.incrementViews();
+
+        res.status(200).json({
+            success: true,
+            blog: {
+                ...blog.toObject(),
+                tableOfContents
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching blog',
             error: error.message
         });
     }
