@@ -39,7 +39,7 @@ import {
   deleteFaq,
   getSimilarVendors,
   VendorsByCity,
-  deletevendorByServicesArea,
+  // deletevendorByServicesArea,
 
   // getCountries,
   // getStates,
