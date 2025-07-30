@@ -5,6 +5,7 @@ import {
     createBlog,
     getAllBlogs,
     getBlogById,
+    getBlogBySlug,
     updateBlog,
     deleteBlog,
     getBlogsByCategory,
@@ -20,6 +21,7 @@ const router = express.Router();
 // Public routes
 router.get('/getallblogs', getAllBlogs);
 router.get('/getblog/:id', getBlogById);
+router.get('/getblog-slug/:slug', getBlogBySlug);
 router.get('/getblog-toc/:id', getBlogWithTOC);
 router.get('/category/:name', getBlogsByCategory);
 router.get('/search', searchBlogs);

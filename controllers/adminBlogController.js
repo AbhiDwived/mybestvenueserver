@@ -60,11 +60,60 @@ export const createBlog = async (req, res) => {
         } = req.body;
         const imageUrl = req.imageUrl;
 
-        // Validate required fields
-        if (!title || !category || !excerpt || !content || !imageUrl) {
+        // Comprehensive validation
+        const errors = [];
+        
+        // Title validation
+        if (!title || !title.trim()) {
+            errors.push('Title is required');
+        } else if (title.length > 100) {
+            errors.push('Title must be 100 characters or less');
+        }
+        
+        // Excerpt validation
+        if (!excerpt || !excerpt.trim()) {
+            errors.push('Excerpt is required');
+        } else if (excerpt.length < 50) {
+            errors.push('Excerpt must be at least 50 characters');
+        } else if (excerpt.length > 250) {
+            errors.push('Excerpt must be 250 characters or less');
+        }
+        
+        // Content validation (text-only, minimum 100 characters)
+        if (!content || !content.trim()) {
+            errors.push('Content is required');
+        } else {
+            const textContent = content.replace(/<[^>]*>/g, '').trim();
+            if (textContent.length < 100) {
+                errors.push('Content must be at least 100 characters (text only)');
+            }
+        }
+        
+        // Image validation
+        if (req.file) {
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            if (req.file.size > maxSize) {
+                errors.push('Image size must be less than 10MB');
+            }
+            
+            const allowedTypes = ['image/jpeg', 'image/png'];
+            if (!allowedTypes.includes(req.file.mimetype)) {
+                errors.push('Only JPEG and PNG images are allowed');
+            }
+        }
+        
+        if (errors.length > 0) {
             return res.status(400).json({
                 success: false,
-                message: 'All fields are required, including image'
+                message: 'Validation failed',
+                errors
+            });
+        }
+        
+        if (!category) {
+            return res.status(400).json({
+                success: false,
+                message: 'Category is required'
             });
         }
 
@@ -87,8 +136,16 @@ export const createBlog = async (req, res) => {
         // Calculate reading time
         const readingTime = calculateReadingTime(content);
 
+        // Generate slug from title
+        const slug = title.toLowerCase()
+            .replace(/[^a-z0-9 -]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .trim('-');
+
         const newBlog = await AdminBlog.create({
             title,
+            slug,
             category,
             featuredImage: imageUrl,
             excerpt,
@@ -97,7 +154,7 @@ export const createBlog = async (req, res) => {
             tableOfContents: tableOfContents === 'true',
             readingTime,
             seoTitle: seoTitle || title,
-            seoDescription: seoDescription || excerpt,
+            seoDescription: seoDescription || excerpt.substring(0, 160),
             seoKeywords: seoKeywords ? seoKeywords.split(',').map(k => k.trim()) : [],
             tags: tags ? tags.split(',').map(t => t.trim()) : [],
             createdBy: admin._id,
@@ -167,6 +224,50 @@ export const getBlogById = async (req, res) => {
     }
 };
 
+// Get a single blog by slug
+export const getBlogBySlug = async (req, res) => {
+    try {
+        const requestedSlug = req.params.slug;
+        
+        // First try to find by slug
+        let blog = await AdminBlog.findOne({ slug: requestedSlug })
+            .populate('createdBy', 'name email');
+
+        // If not found, try regex search on title (more efficient)
+        if (!blog) {
+            const titleRegex = requestedSlug.replace(/-/g, '\\s+');
+            blog = await AdminBlog.findOne({ 
+                title: { $regex: titleRegex, $options: 'i' } 
+            }).populate('createdBy', 'name email');
+            
+            // Update with slug if found
+            if (blog) {
+                blog.slug = requestedSlug;
+                await blog.save();
+            }
+        }
+
+        if (!blog) {
+            return res.status(404).json({
+                success: false,
+                message: 'Blog not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            blog
+        });
+    } catch (error) {
+        console.error('getBlogBySlug error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching blog',
+            error: error.message
+        });
+    }
+};
+
 // Update a blog post
 export const updateBlog = async (req, res) => {
     try {
@@ -184,19 +285,81 @@ export const updateBlog = async (req, res) => {
             status
         } = req.body;
         
+        // Comprehensive validation for update
+        const errors = [];
+        
+        // Title validation
+        if (title !== undefined) {
+            if (!title || !title.trim()) {
+                errors.push('Title is required');
+            } else if (title.length > 100) {
+                errors.push('Title must be 100 characters or less');
+            }
+        }
+        
+        // Excerpt validation
+        if (excerpt !== undefined) {
+            if (!excerpt || !excerpt.trim()) {
+                errors.push('Excerpt is required');
+            } else if (excerpt.length < 50) {
+                errors.push('Excerpt must be at least 50 characters');
+            } else if (excerpt.length > 250) {
+                errors.push('Excerpt must be 250 characters or less');
+            }
+        }
+        
+        // Content validation
+        if (content !== undefined) {
+            if (!content || !content.trim()) {
+                errors.push('Content is required');
+            } else {
+                const textContent = content.replace(/<[^>]*>/g, '').trim();
+                if (textContent.length < 100) {
+                    errors.push('Content must be at least 100 characters (text only)');
+                }
+            }
+        }
+        
+        // Image validation if new image is uploaded
+        if (req.file) {
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            if (req.file.size > maxSize) {
+                errors.push('Image size must be less than 10MB');
+            }
+            
+            const allowedTypes = ['image/jpeg', 'image/png'];
+            if (!allowedTypes.includes(req.file.mimetype)) {
+                errors.push('Only JPEG and PNG images are allowed');
+            }
+        }
+        
+        if (errors.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors
+            });
+        }
         const updateData = {
-            title,
-            category,
-            excerpt,
-            content,
-            richContent: richContent ? JSON.parse(richContent) : null,
-            tableOfContents: tableOfContents === 'true',
-            readingTime: calculateReadingTime(content),
-            seoTitle: seoTitle || title,
-            seoDescription: seoDescription || excerpt,
-            seoKeywords: seoKeywords ? seoKeywords.split(',').map(k => k.trim()) : [],
-            tags: tags ? tags.split(',').map(t => t.trim()) : [],
-            status: status || 'Published'
+            ...(title !== undefined && { 
+                title,
+                slug: title.toLowerCase()
+                    .replace(/[^a-z0-9 -]/g, '')
+                    .replace(/\s+/g, '-')
+                    .replace(/-+/g, '-')
+                    .trim('-')
+            }),
+            ...(category !== undefined && { category }),
+            ...(excerpt !== undefined && { excerpt }),
+            ...(content !== undefined && { content }),
+            ...(richContent !== undefined && { richContent: richContent ? JSON.parse(richContent) : null }),
+            ...(tableOfContents !== undefined && { tableOfContents: tableOfContents === 'true' }),
+            ...(content !== undefined && { readingTime: calculateReadingTime(content) }),
+            ...(seoTitle !== undefined && { seoTitle: seoTitle || title }),
+            ...(seoDescription !== undefined && { seoDescription: seoDescription || excerpt.substring(0, 160) }),
+            ...(seoKeywords !== undefined && { seoKeywords: seoKeywords ? seoKeywords.split(',').map(k => k.trim()) : [] }),
+            ...(tags !== undefined && { tags: tags ? tags.split(',').map(t => t.trim()) : [] }),
+            ...(status !== undefined && { status: status || 'Published' })
         };
 
         const blog = await AdminBlog.findById(req.params.id);
