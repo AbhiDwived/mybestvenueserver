@@ -17,7 +17,20 @@ const eventSchema = new mongoose.Schema({
   },
   eventType: {
     type: String,
-    enum: ['Wedding', 'Reception', 'Engagement', 'Birthday', 'Corporate', 'Other'],
+    enum: [
+      'Wedding', 'Christmas Party', 'New Year Party', 'Lohri Party', 'Valentine\'s Day',
+      'Holi Party', 'Diwali Party', 'Sangeet Ceremony', 'Ring Ceremony', 'Pre Wedding Mehendi Party',
+      'Baby Shower', 'Birthday Party', 'First Birthday Party', 'Bachelor Party', 'Bridal Shower',
+      'Brand Promotion', 'Kids Birthday Party', 'Childrens Party', 'Christian Communion', 'Class Reunion',
+      'Business Dinner', 'Conference', 'Corporate Offsite', 'Corporate Party', 'Cocktail Dinner',
+      'Dealers Meet', 'Engagement', 'Exhibition', 'Corporate Training', 'Family Get together',
+      'Farewell', 'Fashion Show', 'Family Function', 'Game Watch', 'Get Together',
+      'Group Dining', 'Freshers Party', 'Meeting', 'Musical Concert', 'Naming Ceremony',
+      'Kitty Party', 'Pool Party', 'House Party', 'Residential Conference', 'Photo Shoots',
+      'Stage Event', 'Team Building', 'Team Outing', 'Social Mixer', 'Video Shoots',
+      'Walk-in Interview', 'Wedding Anniversary', 'Training', 'Adventure Party', 'Annual Fest',
+      'Aqueeqa ceremony', 'Wedding Reception', 'Nightlife', 'Live Sports Screening', 'MICE', 'Other'
+    ],
     default: 'Other'
   },
   description: {
