@@ -43,6 +43,26 @@ const vendorSchema = new mongoose.Schema(
       type: String,
       default: 'New Delhi, India',
     },
+    city: {
+      type: String,
+      default: '',
+    },
+    state: {
+      type: String,
+      default: '',
+    },
+    country: {
+      type: String,
+      default: 'IN',
+    },
+    pinCode: {
+      type: String,
+      default: '',
+    },
+    nearLocation: {
+      type: String,
+      default: '',
+    },
     services: [String],
     serviceAreas: [String],
     description: String,
