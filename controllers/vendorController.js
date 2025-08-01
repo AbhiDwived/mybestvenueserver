@@ -40,7 +40,7 @@ const getImageKitFileId = (url) => {
 
 // Create vendor by admin (no OTP verification required)
 export const createVendorByAdmin = async (req, res) => {
-  const { businessName, vendorType, contactName, email, phone, password, serviceAreas } = req.body;
+  const { businessName, businessType, vendorType, venueType, contactName, email, phone, password, serviceAreas } = req.body;
 
   try {
     const vendorExists = await Vendor.findOne({ email });
@@ -64,19 +64,46 @@ export const createVendorByAdmin = async (req, res) => {
       }
     }
 
-    const newVendor = new Vendor({
+    const vendorData = {
       businessName,
-      vendorType,
+      businessType: businessType || 'vendor',
       contactName,
       email,
       phone,
       password: hashedPassword,
-      serviceAreas: serviceAreas ? [serviceAreas] : [],
       profilePicture,
       isVerified: true,
       isApproved: true,
       termsAccepted: true
-    });
+    };
+
+    // Handle serviceAreas
+    if (req.body.serviceAreas) {
+      try {
+        vendorData.serviceAreas = typeof req.body.serviceAreas === 'string' ? JSON.parse(req.body.serviceAreas) : req.body.serviceAreas;
+      } catch (error) {
+        vendorData.serviceAreas = Array.isArray(req.body.serviceAreas) ? req.body.serviceAreas : [req.body.serviceAreas];
+      }
+    } else {
+      vendorData.serviceAreas = [];
+    }
+
+    // Handle location fields
+    if (req.body.city) vendorData.city = req.body.city;
+    if (req.body.state) vendorData.state = req.body.state;
+    if (req.body.country) vendorData.country = req.body.country;
+    if (req.body.pinCode) vendorData.pinCode = req.body.pinCode;
+    if (req.body.address) vendorData.address = req.body.address;
+    if (req.body.nearLocation) vendorData.nearLocation = req.body.nearLocation;
+
+    // Add type-specific fields
+    if (businessType === 'vendor' || !businessType) {
+      vendorData.vendorType = vendorType;
+    } else if (businessType === 'venue') {
+      vendorData.venueType = venueType;
+    }
+
+    const newVendor = new Vendor(vendorData);
 
     await newVendor.save();
 
@@ -85,7 +112,9 @@ export const createVendorByAdmin = async (req, res) => {
       vendor: {
         id: newVendor._id,
         businessName: newVendor.businessName,
+        businessType: newVendor.businessType,
         vendorType: newVendor.vendorType,
+        venueType: newVendor.venueType,
         contactName: newVendor.contactName,
         email: newVendor.email,
         phone: newVendor.phone,
@@ -101,12 +130,21 @@ export const createVendorByAdmin = async (req, res) => {
 
 // Register new vendor (with OTP)
 export const registerVendor = async (req, res) => {
-  const { businessName, vendorType, contactName, email, phone, password } = req.body;
+  const { businessName, businessType, vendorType, venueType, contactName, email, phone, password } = req.body;
 
   try {
     // Validate required fields
-    if (!businessName || !vendorType || !contactName || !email || !phone || !password) {
+    if (!businessName || !businessType || !contactName || !email || !phone || !password) {
       return res.status(400).json({ message: "All required fields must be provided" });
+    }
+
+    // Validate business type specific fields
+    if (businessType === 'vendor' && !vendorType) {
+      return res.status(400).json({ message: "Vendor type is required when business type is vendor" });
+    }
+
+    if (businessType === 'venue' && !venueType) {
+      return res.status(400).json({ message: "Venue type is required when business type is venue" });
     }
 
     // Add email format validation
@@ -131,10 +169,10 @@ export const registerVendor = async (req, res) => {
     // Handle profile picture - use ImageKit URL if available
     const profilePicture = req.imageUrl || null;
 
-    // Create new vendor
-    const newVendor = new Vendor({
+    // Create vendor data object
+    const vendorData = {
       businessName,
-      vendorType,
+      businessType,
       contactName,
       email,
       phone,
@@ -144,40 +182,42 @@ export const registerVendor = async (req, res) => {
       isVerified: false,
       termsAccepted: false,
       profilePicture
-    });
+    };
+
+    // Add type-specific fields
+    if (businessType === 'vendor') {
+      vendorData.vendorType = vendorType;
+    } else if (businessType === 'venue') {
+      vendorData.venueType = venueType;
+    }
+
+    // Create new vendor
+    const newVendor = new Vendor(vendorData);
 
     // Handle serviceAreas and address separately to ensure proper parsing
     if (req.body.serviceAreas) {
       try {
-        newVendor.serviceAreas = JSON.parse(req.body.serviceAreas);
+        newVendor.serviceAreas = typeof req.body.serviceAreas === 'string' ? JSON.parse(req.body.serviceAreas) : req.body.serviceAreas;
       } catch (error) {
         console.error('Error parsing serviceAreas:', error);
-        return res.status(400).json({ message: 'Invalid serviceAreas format' });
+        newVendor.serviceAreas = Array.isArray(req.body.serviceAreas) ? req.body.serviceAreas : [req.body.serviceAreas];
       }
     }
 
-    if (req.body.address) {
-      try {
-        const addressData = typeof req.body.address === 'string' ? JSON.parse(req.body.address) : req.body.address;
-        
-        // Ensure the address object has the required fields
-        newVendor.address = {
-          city: addressData.city || 'Not Specified',
-          state: addressData.state || 'Not Specified',
-          street: addressData.street || '',
-          country: addressData.country || 'India',
-          zipCode: addressData.zipCode || ''
-        };
-      } catch (error) {
-        console.error('Error parsing address:', error);
-        return res.status(400).json({ message: 'Invalid address format. Expected format: { city: string, state: string }' });
-      }
+    // Handle address from individual form fields
+    if (req.body.city || req.body.state || req.body.address) {
+      newVendor.city = req.body.city || '';
+      newVendor.state = req.body.state || '';
+      newVendor.country = req.body.country || 'IN';
+      newVendor.pinCode = req.body.pinCode || '';
+      newVendor.address = req.body.address || '';
+      newVendor.nearLocation = req.body.nearLocation || '';
     }
 
     // Prepare vendor data for temporary storage
-    const vendorData = {
+    const tempVendorData = {
       businessName,
-      vendorType,
+      businessType,
       contactName,
       email,
       phone,
@@ -187,37 +227,36 @@ export const registerVendor = async (req, res) => {
       termsAccepted: false,
     };
 
+    // Add type-specific fields
+    if (businessType === 'vendor') {
+      tempVendorData.vendorType = vendorType;
+    } else if (businessType === 'venue') {
+      tempVendorData.venueType = venueType;
+    }
+
     // Handle serviceAreas and address separately to ensure proper parsing
     if (req.body.serviceAreas) {
       try {
-        vendorData.serviceAreas = JSON.parse(req.body.serviceAreas);
+        tempVendorData.serviceAreas = typeof req.body.serviceAreas === 'string' ? JSON.parse(req.body.serviceAreas) : req.body.serviceAreas;
       } catch (error) {
         console.error('Error parsing serviceAreas:', error);
-        return res.status(400).json({ message: 'Invalid serviceAreas format' });
+        tempVendorData.serviceAreas = Array.isArray(req.body.serviceAreas) ? req.body.serviceAreas : [req.body.serviceAreas];
       }
     }
 
-    if (req.body.address) {
-      try {
-        const addressData = typeof req.body.address === 'string' ? JSON.parse(req.body.address) : req.body.address;
-        
-        // Ensure the address object has the required fields
-        vendorData.address = {
-          city: addressData.city || 'Not Specified',
-          state: addressData.state || 'Not Specified',
-          street: addressData.street || '',
-          country: addressData.country || 'India',
-          zipCode: addressData.zipCode || ''
-        };
-      } catch (error) {
-        console.error('Error parsing address:', error);
-        return res.status(400).json({ message: 'Invalid address format. Expected format: { city: string, state: string }' });
-      }
+    // Handle address from individual form fields
+    if (req.body.city || req.body.state || req.body.address) {
+      tempVendorData.city = req.body.city || '';
+      tempVendorData.state = req.body.state || '';
+      tempVendorData.country = req.body.country || 'IN';
+      tempVendorData.pinCode = req.body.pinCode || '';
+      tempVendorData.address = req.body.address || '';
+      tempVendorData.nearLocation = req.body.nearLocation || '';
     }
 
     // Store in pendingVendorRegistrations
     pendingVendorRegistrations[email] = {
-      vendorData,
+      vendorData: tempVendorData,
       otp,
       otpExpires,
     };

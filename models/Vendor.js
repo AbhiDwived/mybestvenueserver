@@ -6,9 +6,22 @@ const vendorSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Business name is required'],
     },
+    businessType: {
+      type: String,
+      required: [true, 'Business type is required'],
+      enum: ['vendor', 'venue']
+    },
     vendorType: {
       type: String,
-      required: [true, 'Vendor type is required'],
+      required: function() {
+        return this.businessType === 'vendor';
+      }
+    },
+    venueType: {
+      type: String,
+      required: function() {
+        return this.businessType === 'venue';
+      }
     },
     contactName: {
       type: String,
