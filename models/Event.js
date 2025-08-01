@@ -4,7 +4,7 @@ const eventSchema = new mongoose.Schema({
   vendorId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Vendor',
-    required: true
+    required: false
   },
   eventName: {
     type: String,

@@ -1,8 +1,9 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import upload from '../middlewares/upload.js';
 import { uploadToImageKit, uploadToStorage } from '../middlewares/imageKitUpload.js';
 import { validate, vendorValidation, userValidation } from '../middlewares/validation.js';
-import { VerifyVendor, VerifyAdmin, CheckVendorApproval } from '../middlewares/authMiddleware.js';
+import { VerifyVendor, VerifyAdmin, CheckVendorApproval, VerifyAdminOrVendor } from '../middlewares/authMiddleware.js';
 import multer from 'multer';
 
 import {
@@ -39,6 +40,7 @@ import {
   deleteFaq,
   getSimilarVendors,
   VendorsByCity,
+  createVendorByAdmin,
   // deletevendorByServicesArea,
 
   // getCountries,
@@ -46,8 +48,11 @@ import {
   // getCities,
 } from '../controllers/vendorController.js';
 import { forgotPassword, verifyResetOtp, resetPassword } from '../controllers/authController.js';
+import Vendor from '../models/Vendor.js';
 
 const router = express.Router();
+
+
 
 // Configure multer for video upload
 const videoUpload = multer({
@@ -103,103 +108,141 @@ router.post('/resend-forgot-password-otp', resendPasswordResetOtp);
 // Reset password
 router.post('/reset_password', resetPassword);
 
-// Update vendor profile (vendor only)
+// Update vendor profile (vendor or admin)
 router.put('/update/:id', 
-  VerifyVendor, 
-  CheckVendorApproval, 
-  validate(vendorValidation.updateProfile),
+  VerifyAdminOrVendor, 
   upload.single('profilePicture'),
   (req, res, next) => {
-    // Set the folder path for vendor profile pictures
     req.imagePath = 'vendor-profiles';
     next();
   },
-  uploadToStorage, // This will use either S3 or ImageKit based on STORAGE_TYPE
+  uploadToStorage,
   updateVendorProfile
 );
 
 // Delete vendor (only admin can delete vendors for now)
 router.delete('/delete/:vendorId', VerifyAdmin, deleteVendor);
 
-// Get vendor by ID
+// Get vendor by ID (Overview)
 router.get('/vendorbyId/:vendorId', getVendorById);
 
 // Handle user inquiry replies
 
-router.post('/inquiry-reply/:vendorId', VerifyVendor, addVendorReplyToInquiry);
+router.post('/inquiry-reply/:vendorId', VerifyAdminOrVendor, addVendorReplyToInquiry);
 
 // Get vendor's replied inquiries
-router.get('/replied-inquiries/:vendorId', VerifyVendor, getVendorRepliedInquiryList);
+router.get('/replied-inquiries/:vendorId', VerifyAdminOrVendor, getVendorRepliedInquiryList);
 
 
 // Packages routes
-router.post('/addservicesPackage', VerifyVendor,addServicesPackage);
-router.get('/allservicesPackageList', VerifyVendor,getAllServicesPackages);
-router.get('/vendorservicesPackageList/:vendorId',getVendorServicesPackages);
-router.put('/updateservicesPackage/:packageId', VerifyVendor,updateServicePackages);
-router.delete('/updateservicesPackage/:packageId', VerifyVendor,deleteServicePackages);
+router.post('/addservicesPackage', VerifyAdminOrVendor,addServicesPackage);
+router.get('/allservicesPackageList', VerifyAdminOrVendor,getAllServicesPackages);
+router.get('/vendorservicesPackageList/:vendorId', VerifyAdminOrVendor, getVendorServicesPackages);
+router.put('/updateservicesPackage/:packageId', VerifyAdminOrVendor,updateServicePackages);
+router.delete('/updateservicesPackage/:packageId', VerifyAdminOrVendor,deleteServicePackages);
 
 // Faqs routes
-router.post("/addfaq",VerifyVendor,addFaq);
-router.get("/getfaqsbyVendor/:vendorId",getVendorsFaqs);
-router.delete("/deletefaq/:vendorId/:faqId",VerifyVendor,deleteFaq);
+router.post("/addfaq",VerifyAdminOrVendor,addFaq);
+router.get("/getfaqsbyVendor/:vendorId", VerifyAdminOrVendor, getVendorsFaqs);
+router.delete("/deletefaq/:vendorId/:faqId",VerifyAdminOrVendor,deleteFaq);
 
 // Update vendor pricing range
-router.put('/pricing-range/:vendorId', VerifyVendor, updateVendorPricingRange);
+router.put('/pricing-range/:vendorId', VerifyAdminOrVendor, updateVendorPricingRange);
 
 // get UserListBy userId 
-router.get("/getUserListByUserId/:userId",VerifyVendor,getUserListById);
+router.get("/getUserListByUserId/:userId",VerifyAdminOrVendor,getUserListById);
 
 // create userBooking By vendor
-
-router.post("/createuserBookingbyVendor",VerifyVendor,createuserBookingByVendor);
+router.post("/createuserBookingbyVendor",VerifyAdminOrVendor,createuserBookingByVendor);
 
 router.post("/refresh-token", refreshToken);
 
+
+
 // Portfolio management routes
-// Upload portfolio image (vendor only)
+// Upload portfolio image (vendor or admin)
 router.post('/portfolio/image',
-  VerifyVendor,
-  CheckVendorApproval,
+  VerifyAdminOrVendor,
   upload.single('image'),
   (req, res, next) => {
     req.imagePath = 'vendors/portfolio';
     next();
   },
-  uploadToStorage, // This will use either S3 or ImageKit based on STORAGE_TYPE
+  uploadToStorage,
   uploadPortfolioImage
 );
 
-// Get vendor portfolio images (public)
+// Upload portfolio video (vendor or admin)
+router.post('/portfolio/video', VerifyAdminOrVendor, videoUpload.single('video'), uploadPortfolioVideo);
+
+// Get vendor portfolio images (public - no auth required)
 router.get('/portfolio/images/:vendorId', getPortfolioImages);
 
-// Delete portfolio image (vendor only)
-router.delete('/portfolio/image/:imageId', VerifyVendor, CheckVendorApproval, deletePortfolioImage);
-
-// Upload portfolio video info (vendor only)
-router.post('/portfolio/video', VerifyVendor, CheckVendorApproval, videoUpload.single('video'), uploadPortfolioVideo);
-
-// Get vendor portfolio videos (public)
+// Get vendor portfolio videos (public - no auth required)
 router.get('/portfolio/videos/:vendorId', getPortfolioVideos);
 
-// Delete portfolio video (vendor only)
-router.delete('/portfolio/video/:videoId', VerifyVendor, CheckVendorApproval, deletePortfolioVideo);
+// Delete portfolio image (vendor or admin)
+router.delete('/portfolio/image/:imageId', VerifyAdminOrVendor, deletePortfolioImage);
 
-// get latest vendorType record
-router.get('/getlatestvendorType',getlatestVendorTypeData );
+// Delete portfolio video (vendor or admin)
+router.delete('/portfolio/video/:videoId', VerifyAdminOrVendor, deletePortfolioVideo);
 
+// Test route for portfolio
+router.get('/portfolio/test', (req, res) => {
+  res.json({ message: 'Portfolio routes are working', timestamp: new Date() });
+});
 
-// get latest vendorType record
-router.get('/getlatestvendorType',getlatestVendorTypeData );
-router.delete("/:vendorId/pricing/:pricingId",VerifyVendor,deletePricingList);
+// Test route for vendor ID validation
+router.get('/test-vendor/:vendorId', async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    console.log('🧪 Testing vendor ID:', vendorId);
+    
+    if (!vendorId || !mongoose.Types.ObjectId.isValid(vendorId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid vendor ID format',
+        vendorId
+      });
+    }
+    
+    const vendor = await Vendor.findById(vendorId);
+    
+    if (!vendor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Vendor not found',
+        vendorId
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Vendor found',
+      vendorId,
+      businessName: vendor.businessName,
+      hasPortfolio: !!(vendor.portfolio?.images?.length || vendor.portfolio?.videos?.length)
+    });
+  } catch (error) {
+    console.error('❌ Error testing vendor:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// get latest vendorType record (public endpoint)
+router.get('/getlatestvendorType', getlatestVendorTypeData);
+
+// delete pricing list
+router.delete("/:vendorId/pricing/:pricingId", VerifyAdminOrVendor, deletePricingList);
 
 // get Similar Vendors List 
-router.get('/getSimilarVendors/:vendorId',getSimilarVendors);
-
-// Similar Vendors List 
-router.get("/getSimilarVendors/:vendorId",getSimilarVendors);
+router.get('/getSimilarVendors/:vendorId', VerifyAdminOrVendor, getSimilarVendors);
 
 // vendor city wise search 
-router.get("/Vendor/:city",VendorsByCity);
+router.get("/Vendor/:city", VerifyAdminOrVendor, VendorsByCity);
 
 export default router;

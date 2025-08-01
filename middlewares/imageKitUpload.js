@@ -12,7 +12,15 @@ const STORAGE_TYPE = process.env.STORAGE_TYPE || 'imagekit';
 // S3 upload middleware
 export const uploadToS3 = async (req, res, next) => {
     try {
+        console.log('📤 S3 Upload Middleware - File check:', {
+            hasFile: !!req.file,
+            fileName: req.file?.originalname,
+            fileSize: req.file?.size,
+            mimeType: req.file?.mimetype
+        });
+        
         if (!req.file) {
+            console.log('⚠️ No file found in request, skipping S3 upload');
             return next();
         }
 
@@ -24,6 +32,13 @@ export const uploadToS3 = async (req, res, next) => {
         // Determine folder path
         const folderPath = req.imagePath || 'uploads';
         const key = `${folderPath}/${fileName}`;
+        
+        console.log('📁 S3 Upload Details:', {
+            bucket: S3_BUCKET_NAME,
+            key: key,
+            folderPath: folderPath,
+            fileName: fileName
+        });
 
         // Upload to S3
         const params = {
@@ -35,10 +50,14 @@ export const uploadToS3 = async (req, res, next) => {
         };
 
         const command = new PutObjectCommand(params);
+        console.log('🚀 Uploading to S3...');
         await s3Client.send(command);
+        console.log('✅ S3 upload successful');
 
         // Generate S3 URL
         const s3Url = `https://${S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
+        
+        console.log('🔗 Generated S3 URL:', s3Url);
         
         // Add S3 URL to request object - set both for backward compatibility
         req.imageUrl = s3Url;
@@ -47,11 +66,17 @@ export const uploadToS3 = async (req, res, next) => {
         
         next();
     } catch (error) {
-        console.error('S3 Upload Error:', error);
+        console.error('❌ S3 Upload Error:', {
+            message: error.message,
+            code: error.code,
+            statusCode: error.$metadata?.httpStatusCode,
+            stack: error.stack
+        });
         return res.status(500).json({
             success: false,
             message: 'Error uploading image to S3',
-            error: error.message
+            error: error.message,
+            code: error.code
         });
     }
 };
@@ -92,24 +117,38 @@ export const uploadToImageKit = async (req, res, next) => {
 // Unified upload middleware that chooses between S3 and ImageKit
 export const uploadToStorage = async (req, res, next) => {
     try {
+        console.log('🗄️ Storage Upload Middleware:', {
+            storageType: STORAGE_TYPE,
+            hasFile: !!req.file,
+            imagePath: req.imagePath
+        });
+        
         if (!req.file) {
+            console.log('⚠️ No file found in uploadToStorage, skipping upload');
             return next();
         }
         
         // Use S3 or ImageKit based on configuration
         if (STORAGE_TYPE === 's3') {
+            console.log('📤 Using S3 storage');
             await uploadToS3(req, res, () => {});
         } else {
+            console.log('📤 Using ImageKit storage');
             await uploadToImageKit(req, res, () => {});
         }
         
         next();
     } catch (error) {
-        console.error('Storage Upload Error:', error);
+        console.error('❌ Storage Upload Error:', {
+            message: error.message,
+            stack: error.stack,
+            storageType: STORAGE_TYPE
+        });
         return res.status(500).json({
             success: false,
             message: 'Error uploading image',
-            error: error.message
+            error: error.message,
+            storageType: STORAGE_TYPE
         });
     }
 };

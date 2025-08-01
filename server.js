@@ -5,6 +5,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import mongoose from 'mongoose';
 import connectDB from './config/db.js';  // Ensure .js extension for local imports
 import userRoutes from './routes/userRoutes.js';
 import vendorRoutes from './routes/vendorRoutes.js';

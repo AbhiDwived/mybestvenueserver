@@ -38,6 +38,67 @@ const getImageKitFileId = (url) => {
   }
 };
 
+// Create vendor by admin (no OTP verification required)
+export const createVendorByAdmin = async (req, res) => {
+  const { businessName, vendorType, contactName, email, phone, password, serviceAreas } = req.body;
+
+  try {
+    const vendorExists = await Vendor.findOne({ email });
+    if (vendorExists) {
+      return res.status(400).json({ message: 'Vendor already exists' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    
+    let profilePicture = null;
+    if (req.file) {
+      try {
+        const response = await imagekit.upload({
+          file: req.file.buffer.toString('base64'),
+          fileName: `vendor_profile_${Date.now()}_${req.file.originalname}`,
+          folder: 'vendor-profiles'
+        });
+        profilePicture = response.url;
+      } catch (uploadError) {
+        console.error('File upload error:', uploadError);
+      }
+    }
+
+    const newVendor = new Vendor({
+      businessName,
+      vendorType,
+      contactName,
+      email,
+      phone,
+      password: hashedPassword,
+      serviceAreas: serviceAreas ? [serviceAreas] : [],
+      profilePicture,
+      isVerified: true,
+      isApproved: true,
+      termsAccepted: true
+    });
+
+    await newVendor.save();
+
+    res.status(201).json({
+      message: 'Vendor created successfully by admin',
+      vendor: {
+        id: newVendor._id,
+        businessName: newVendor.businessName,
+        vendorType: newVendor.vendorType,
+        contactName: newVendor.contactName,
+        email: newVendor.email,
+        phone: newVendor.phone,
+        profilePicture: newVendor.profilePicture,
+        isApproved: newVendor.isApproved,
+        isVerified: newVendor.isVerified
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating vendor', error: error.message });
+  }
+};
+
 // Register new vendor (with OTP)
 export const registerVendor = async (req, res) => {
   const { businessName, vendorType, contactName, email, phone, password } = req.body;
@@ -51,8 +112,8 @@ export const registerVendor = async (req, res) => {
     // Add email format validation
     const emailRegex = /^[a-zA-Z0-9](\.?[a-zA-Z0-9_-])*@[a-zA-Z0-9-]+(\.[a-zA-Z]{2,})+$/;
     if (!emailRegex.test(email.trim())) {
-      return res.status(400).json({ message: "Invalid email address" });
-    }
+      return res.status(400).json({ message: "Invalid email address" });
+    }
 
     // Check if vendor already exists
     const vendorExists = await Vendor.findOne({ email });
@@ -318,7 +379,7 @@ export const resendVendorOtp = async (req, res) => {
     await vendor.save();
 
     // Send OTP via email
-    const transporter = nodemailer.createTransport({
+    const transporter = nodemailer.createTransporter({
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USER,
@@ -351,8 +412,6 @@ export const resendVendorOtp = async (req, res) => {
     });
   }
 };
-
-
 
 // Resend Password Reset OTP
 export const resendPasswordResetOtp = async (req, res) => {
@@ -453,8 +512,11 @@ export const loginVendor = async (req, res) => {
 export const updateVendorProfile = async (req, res) => {
   try {
     const vendorId = req.params.id;
-    const updateData = req.body;
- // ✅ Clean up any tab characters in keys (from Postman or frontend)
+    const updateData = {};
+    
+    console.log('🔍 Raw request body:', JSON.stringify(req.body, null, 2));
+    
+    // Clean up any tab characters in keys
     for (const key in req.body) {
       const cleanKey = key.replace(/\t/g, '');
       if (cleanKey !== key) {
@@ -462,29 +524,89 @@ export const updateVendorProfile = async (req, res) => {
         delete req.body[key];
       }
     }
-
-     // ✅ Extract pricing data from form fields like pricing[0][type]
-    const pricing = [];
-    let i = 0;
-    while (req.body[`pricing[${i}][type]`] !== undefined) {
-      pricing.push({
-        type: req.body[`pricing[${i}][type]`],
-        price: parseFloat(req.body[`pricing[${i}][price]`] || '0'),
-        currency: req.body[`pricing[${i}][currency]`] || 'INR',
-        unit: req.body[`pricing[${i}][unit]`] || 'per person',
-      });
-      i++;
+    
+    // Handle all fields except pricing
+    for (const [key, value] of Object.entries(req.body)) {
+      if (key !== 'pricing' && !key.startsWith('pricing[')) {
+        updateData[key] = value;
+      }
     }
 
-    // ✅ Only set pricing if valid entries exist
-    if (pricing.length > 0) {
-      updateData.pricing = pricing;
+    // Handle pricing data from multiple possible sources
+    let pricingData = null;
+    
+    // Check if pricing is sent as array directly
+    if (req.body.pricing && Array.isArray(req.body.pricing)) {
+      pricingData = req.body.pricing;
+      console.log('🔍 Found pricing as array:', pricingData);
+    }
+    // Check if pricing is sent as JSON string
+    else if (req.body.pricing && typeof req.body.pricing === 'string') {
+      try {
+        pricingData = JSON.parse(req.body.pricing);
+        console.log('🔍 Found pricing as JSON string:', pricingData);
+      } catch (e) {
+        console.log('❌ Failed to parse pricing JSON:', req.body.pricing);
+      }
+    }
+    // Check form fields format
+    else {
+      const formPricing = [];
+      let i = 0;
+      while (req.body[`pricing[${i}][type]`] !== undefined) {
+        const type = req.body[`pricing[${i}][type]`];
+        const price = req.body[`pricing[${i}][price]`];
+        const currency = req.body[`pricing[${i}][currency]`];
+        const unit = req.body[`pricing[${i}][unit]`];
+        formPricing.push({ type, price, currency, unit });
+        i++;
+      }
+      if (formPricing.length > 0) {
+        pricingData = formPricing;
+        console.log('🔍 Found pricing as form fields:', pricingData);
+      }
     }
 
-    // ✅ Handle address as simple string
+    // Validate and filter pricing data
+    if (pricingData && Array.isArray(pricingData)) {
+      const validPricing = pricingData.filter(item => {
+        const isValidType = item.type && String(item.type).trim().length > 0;
+        const isValidPrice = item.price && 
+                            String(item.price) !== 'null' && 
+                            item.price !== null && 
+                            String(item.price) !== '' && 
+                            !isNaN(Number(item.price)) && 
+                            Number(item.price) > 0;
+        
+        if (isValidType && isValidPrice) {
+          return true;
+        }
+        console.log('❌ Filtered out invalid pricing:', item);
+        return false;
+      }).map(item => ({
+        type: String(item.type).trim(),
+        price: Number(item.price),
+        currency: item.currency || 'INR',
+        unit: item.unit || 'per person'
+      }));
+
+      if (validPricing.length > 0) {
+        updateData.pricing = validPricing;
+        console.log('✅ Setting valid pricing:', validPricing);
+      }
+    }
+
+    // Handle address
     if (req.body.address !== undefined) {
       updateData.address = req.body.address;
     }
+    
+    // Remove pricing field completely if it exists but is invalid
+    if ('pricing' in updateData && (!updateData.pricing || updateData.pricing.length === 0)) {
+      delete updateData.pricing;
+    }
+    
+    console.log('🔍 Final updateData:', JSON.stringify(updateData, null, 2));
     // Find the vendor first
     const vendor = await Vendor.findById(vendorId);
     if (!vendor) {
@@ -507,12 +629,17 @@ export const updateVendorProfile = async (req, res) => {
     await logVendorProfileUpdate(vendor, updateData, req);
 
     // Return the complete updated vendor object
-    console.log("update vendor",updateData)
+    console.log("✅ Vendor profile updated successfully", {
+      vendorId,
+      pricingCount: updateData.pricing?.length || 0,
+      hasUnsetOperations: !!updateData.$unset
+    });
+    
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
       vendor: updatedVendor,
-      profilePicture: updatedVendor.profilePicture // Explicitly include the profile picture URL
+      profilePicture: updatedVendor.profilePicture
     });
   } catch (error) {
     console.error('Error updating vendor profile:', error);
@@ -607,8 +734,6 @@ export const addVendorReplyToInquiry = async (req, res) => {
     res.status(500).json({ message: "Error saving reply", error: error.message });
   }
 };
-
-
 
 
 
@@ -1013,12 +1138,20 @@ export const refreshToken = async (req, res) => {
 // Portfolio management functions
 export const uploadPortfolioImage = async (req, res) => {
   try {
-    const vendorId = req.user.id;
+    // Get vendorId - for admin from body/query, for vendor use their own ID
+    let vendorId = req.user.role === 'admin' ? (req.body.vendorId || req.query.vendorId) : req.user.id;
     
     if (!req.fileUrl) {
       return res.status(400).json({
         success: false,
         message: 'No image uploaded'
+      });
+    }
+    
+    if (!vendorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vendor ID is required'
       });
     }
     
@@ -1050,17 +1183,33 @@ export const uploadPortfolioImage = async (req, res) => {
     
     await vendor.save();
     
+
+    
     res.status(200).json({
       success: true,
       message: 'Portfolio image uploaded successfully',
       image: vendor.portfolio.images[vendor.portfolio.images.length - 1]
     });
   } catch (error) {
-    console.error('Error uploading portfolio image:', error);
+    console.error('❌ Error uploading portfolio image:', {
+      error: error.message,
+      stack: error.stack,
+      vendorId: req.body.vendorId,
+      userRole: req.user?.role,
+      userId: req.user?.id
+    });
+    
     res.status(500).json({
       success: false,
-      message: 'Server error',
-      error: error.message
+      message: 'Server error during portfolio image upload',
+      error: error.message,
+      debug: {
+        vendorId: req.body.vendorId,
+        userRole: req.user?.role,
+        userId: req.user?.id,
+        hasFile: !!req.file,
+        hasFileUrl: !!req.fileUrl
+      }
     });
   }
 };
@@ -1068,11 +1217,22 @@ export const uploadPortfolioImage = async (req, res) => {
 export const getPortfolioImages = async (req, res) => {
   try {
     const { vendorId } = req.params;
+    console.log('🖼️ Getting portfolio images for vendor:', vendorId);
+    
+    // Validate vendorId
+    if (!vendorId || !mongoose.Types.ObjectId.isValid(vendorId)) {
+      console.log('❌ Invalid vendor ID:', vendorId);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid vendor ID'
+      });
+    }
     
     // Find the vendor
     const vendor = await Vendor.findById(vendorId);
     
     if (!vendor) {
+      console.log('❌ Vendor not found:', vendorId);
       return res.status(404).json({
         success: false,
         message: 'Vendor not found'
@@ -1081,13 +1241,14 @@ export const getPortfolioImages = async (req, res) => {
     
     // Return portfolio images
     const images = vendor.portfolio?.images || [];
+    console.log('✅ Found', images.length, 'portfolio images for vendor:', vendorId);
     
     res.status(200).json({
       success: true,
       images
     });
   } catch (error) {
-    console.error('Error fetching portfolio images:', error);
+    console.error('❌ Error fetching portfolio images:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -1098,60 +1259,38 @@ export const getPortfolioImages = async (req, res) => {
 
 export const deletePortfolioImage = async (req, res) => {
   try {
-    const vendorId = req.user.id;
     const { imageId } = req.params;
     
-    // Find the vendor
-    const vendor = await Vendor.findById(vendorId);
-    
-    if (!vendor) {
-      return res.status(404).json({
-        success: false,
-        message: 'Vendor not found'
-      });
-    }
-    
-    // Find the image in the portfolio
-    if (!vendor.portfolio || !vendor.portfolio.images) {
-      return res.status(404).json({
-        success: false,
-        message: 'Portfolio not found'
-      });
-    }
-    
-    const imageIndex = vendor.portfolio.images.findIndex(img => img._id.toString() === imageId);
-    
-    if (imageIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        message: 'Image not found in portfolio'
-      });
-    }
-    
-    // Get the image URL to delete from ImageKit
-    const imageUrl = vendor.portfolio.images[imageIndex].url;
-    
-    // Delete from ImageKit if it's an ImageKit URL
-    if (imageUrl && imageUrl.includes('imagekit')) {
-      try {
-        const fileId = getImageKitFileId(imageUrl);
-        if (fileId) {
-          await imagekit.deleteFile(fileId);
-        }
-      } catch (error) {
-        console.error('Error deleting image from ImageKit:', error);
-        // Continue with deletion from database even if ImageKit deletion fails
+    // Get vendorId - for vendors use their own ID, for admin use query param or find by image
+    let vendorId;
+    if (req.user.role === 'vendor') {
+      vendorId = req.user.id;
+    } else {
+      vendorId = req.query.vendorId;
+      if (!vendorId) {
+        const vendorWithImage = await Vendor.findOne({ 'portfolio.images._id': imageId });
+        vendorId = vendorWithImage?._id;
       }
     }
     
-    // Remove the image from the portfolio
+    if (!vendorId) {
+      return res.status(400).json({ success: false, message: 'Vendor not found' });
+    }
+    
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor || !vendor.portfolio?.images) {
+      return res.status(404).json({ success: false, message: 'Vendor or portfolio not found' });
+    }
+    
+    const imageIndex = vendor.portfolio.images.findIndex(img => img._id.toString() === imageId);
+    if (imageIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Image not found' });
+    }
+    
     vendor.portfolio.images.splice(imageIndex, 1);
     await vendor.save();
     
-    res.status(200).json({
-      success: true,
-      message: 'Portfolio image deleted successfully'
-    });
+    res.status(200).json({ success: true, message: 'Image deleted successfully' });
   } catch (error) {
     console.error('Error deleting portfolio image:', error);
     res.status(500).json({
@@ -1164,9 +1303,17 @@ export const deletePortfolioImage = async (req, res) => {
 
 export const uploadPortfolioVideo = async (req, res) => {
   try {
-    const vendorId = req.user.id;
+    // For admin, get vendorId from request body, for vendor use their own ID
+    const vendorId = req.user.role === 'admin' ? req.body.vendorId : req.user.id;
     let videoUrl = req.body.url;
     const title = req.body.title || `Portfolio Video`;
+    
+    if (!vendorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vendor ID is required'
+      });
+    }
 
     // Handle file upload if a file is present
     if (req.file) {
@@ -1268,11 +1415,22 @@ export const uploadPortfolioVideo = async (req, res) => {
 export const getPortfolioVideos = async (req, res) => {
   try {
     const { vendorId } = req.params;
+    console.log('🎥 Getting portfolio videos for vendor:', vendorId);
+    
+    // Validate vendorId
+    if (!vendorId || !mongoose.Types.ObjectId.isValid(vendorId)) {
+      console.log('❌ Invalid vendor ID:', vendorId);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid vendor ID'
+      });
+    }
     
     // Find the vendor
     const vendor = await Vendor.findById(vendorId);
     
     if (!vendor) {
+      console.log('❌ Vendor not found:', vendorId);
       return res.status(404).json({
         success: false,
         message: 'Vendor not found'
@@ -1281,13 +1439,14 @@ export const getPortfolioVideos = async (req, res) => {
     
     // Return portfolio videos
     const videos = vendor.portfolio?.videos || [];
+    console.log('✅ Found', videos.length, 'portfolio videos for vendor:', vendorId);
     
     res.status(200).json({
       success: true,
       videos
     });
   } catch (error) {
-    console.error('Error fetching portfolio videos:', error);
+    console.error('❌ Error fetching portfolio videos:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -1298,8 +1457,37 @@ export const getPortfolioVideos = async (req, res) => {
 
 export const deletePortfolioVideo = async (req, res) => {
   try {
-    const vendorId = req.user.id;
     const { videoId } = req.params;
+    
+    console.log('🗑️ Delete Portfolio Video Debug:', {
+      videoId,
+      userRole: req.user.role,
+      userId: req.user.id,
+      bodyVendorId: req.body.vendorId,
+      queryVendorId: req.query.vendorId
+    });
+    
+    // For admin, get vendorId from request body or query, for vendor use their own ID
+    let vendorId = req.user.role === 'admin' ? (req.body.vendorId || req.query.vendorId) : req.user.id;
+    
+    // If admin but no vendorId provided, find the vendor by searching through all vendors for this video
+    if (!vendorId && req.user.role === 'admin') {
+      const vendorWithVideo = await Vendor.findOne({
+        'portfolio.videos._id': videoId
+      });
+      
+      if (vendorWithVideo) {
+        vendorId = vendorWithVideo._id;
+        console.log('✅ Found vendor by video ID:', vendorId);
+      }
+    }
+    
+    if (!vendorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vendor ID is required for video deletion'
+      });
+    }
     
     // Find the vendor
     const vendor = await Vendor.findById(vendorId);
@@ -1457,7 +1645,6 @@ export const getSimilarVendors = async (req, res) => {
   }
 };
 
-
 // Search Vendor by city
 export const VendorsByCity = async (req, res) => {
   try {
@@ -1469,10 +1656,7 @@ export const VendorsByCity = async (req, res) => {
       return res.status(400).json({ msg: 'City is required and must be a string' });
     }
 
-
     const normalizedInput = city.trim().toLowerCase().replace(/\s/g, '');
-
-
     const regex = new RegExp(`^${normalizedInput.split('').join('\\s*')}$`, 'i');
 
     const vendors = await Vendor.find({
@@ -1484,8 +1668,6 @@ export const VendorsByCity = async (req, res) => {
     const total = await Vendor.countDocuments({
       city: { $regex: regex }
     });
-
-    
 
     if (vendors.length === 0) {
       return res.status(404).json({ msg:`No vendors found for ${city}` });

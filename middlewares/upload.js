@@ -16,10 +16,18 @@ const storage = multer.memoryStorage();
 
 // File filter to allow only JPEG and PNG images
 const fileFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png'];
+    console.log('📄 File filter check:', {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
+    });
+    
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
     if (allowedTypes.includes(file.mimetype)) {
+        console.log('✅ File type accepted:', file.mimetype);
         cb(null, true);
     } else {
+        console.log('❌ File type rejected:', file.mimetype);
         cb(new Error('Only JPEG and PNG images are allowed'), false);
     }
 };
@@ -30,6 +38,10 @@ const upload = multer({
     fileFilter: fileFilter,
     limits: {
         fileSize: 10 * 1024 * 1024 // 10MB limit
+    },
+    onError: (err, next) => {
+        console.error('❌ Multer error:', err);
+        next(err);
     }
 });
 

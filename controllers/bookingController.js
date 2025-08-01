@@ -303,24 +303,23 @@ export const getAvailableVendors = async (req, res) => {
 
 // Vendor  booking List 
 export const getVendorBookings = async (req, res) => {
-  // console.log(" start section ")
   try {
-   const vendorId = req.params.vendorId;
-
-
+    const vendorId = req.params.vendorId;
+    
+    if (!vendorId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vendor ID is required'
+      });
+    }
     
     const bookings = await Booking.find({ vendor: vendorId })
-       .populate('user', 'name businessName email phone profilePhoto')
+      .populate('user', 'name businessName email phone profilePhoto')
       .sort({ createdAt: -1 });
-
-      if(!bookings){
-        res.status(200).send({msg:"No Booking Found "})
-      }
 
 
     const totalPlanned = bookings.reduce((sum, b) => sum + (b.plannedAmount || 0), 0);
     const totalSpent = bookings.reduce((sum, b) => sum + (b.spentAmount || 0), 0);
-    
     
     const statusCounts = bookings.reduce((counts, booking) => {
       const status = booking.status?.toLowerCase(); 
@@ -331,7 +330,7 @@ export const getVendorBookings = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        bookings,
+        bookings: bookings || [],
         totalPlanned,
         totalSpent,
         totalBookingsCount: bookings.length,

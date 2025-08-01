@@ -11,7 +11,7 @@ import {
   updateVendorBooking,
   getAllBookings
 } from '../controllers/bookingController.js';
-import { VerifyUser, VerifyVendor, VerifyAdmin } from '../middlewares/authMiddleware.js';
+import { VerifyUser, VerifyVendor, VerifyAdmin, VerifyAdminOrVendor } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
@@ -27,7 +27,7 @@ router.put('/:bookingId', VerifyUser, updateBooking);
 router.delete('/:bookingId', VerifyUser, deleteBooking);
 
 // Vendor routes
-router.get("/getvendorBookings/:vendorId", VerifyVendor, getVendorBookings);
-router.put("/updateVendorBooking/:bookingId", VerifyVendor, updateVendorBooking);
+router.get("/getvendorBookings/:vendorId", VerifyAdminOrVendor, getVendorBookings);
+router.put("/updateVendorBooking/:bookingId", VerifyAdminOrVendor, updateVendorBooking);
 
-export default router; 
+export default router;

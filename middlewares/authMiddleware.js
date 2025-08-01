@@ -145,19 +145,59 @@ export const VerifyAdmin = (req, res, next) => {
   }
 };
 
-// ✅ Check if Vendor is Approved
+// ✅ Check if Vendor is Approved (Admin bypass allowed)
 export const CheckVendorApproval = async (req, res, next) => {
   try {
+    // Allow admin to bypass vendor approval check
+    if (req.user.role === 'admin') {
+      console.log('✅ Admin bypassing vendor approval check');
+      return next();
+    }
+    
     const vendor = await Vendor.findById(req.user.id); // ✅ Use Vendor model
     if (!vendor || vendor.role !== 'vendor') {
+      console.log('❌ Vendor not found or invalid role:', { vendorExists: !!vendor, role: vendor?.role });
       return res.status(403).json({ message: 'Access denied: Not a valid vendor' });
     }
     if (!vendor.isApproved) {
+      console.log('❌ Vendor not approved:', vendor.businessName);
       return res.status(403).json({ message: 'Access denied: Vendor not approved. Please contact admin.' });
     }
+    console.log('✅ Vendor approval check passed:', vendor.businessName);
     next();
   } catch (err) {
+    console.error('❌ Error in vendor approval check:', err);
     return res.status(500).json({ message: 'Server error during approval check' });
+  }
+};
+
+// Middleware to verify if the user is an admin or the correct vendor
+export const VerifyAdminOrVendor = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Authorization token missing or malformed' });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+
+    // If user is an admin, always grant access
+    if (decoded.role === 'admin') {
+      return next();
+    }
+
+    // If user is a vendor, always grant access (they can only access their own data anyway)
+    if (decoded.role === 'vendor') {
+      return next();
+    }
+
+    // If neither admin nor vendor, deny access
+    return res.status(403).json({ message: 'Access denied' });
+  } catch (err) {
+    return res.status(401).json({ message: 'Token is invalid or expired' });
   }
 };
 
@@ -165,4 +205,3 @@ export const CheckVendorApproval = async (req, res, next) => {
 export const protect = async (req, res, next) => {
   // Implementation...
 };
-

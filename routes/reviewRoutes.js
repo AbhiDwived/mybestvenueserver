@@ -6,7 +6,7 @@ import { VerifyAdmin } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 router.post('/', verifyToken, createReview);
-router.get('/vendor/:vendorId', getVendorReviews);
+router.get('/vendor/:vendorId', getVendorReviews); // Public access for reviews
 router.get('/stats', getVendorsReviewStats);
 router.put('/:reviewId', verifyToken, updateReview);
 router.patch('/:reviewId/report', verifyToken, reportReview);

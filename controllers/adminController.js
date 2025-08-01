@@ -20,6 +20,7 @@ import Admin from '../models/Admin.js';
 import Vendor from '../models/Vendor.js';
 import { logUserLogin } from '../utils/activityLogger.js';
 import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddleware.js';
+import Event from '../models/Event.js';
 
 /**
  * Register a new admin
@@ -695,3 +696,105 @@ export const getLatestVendorsByType = async (req, res) => {
     res.status(500).json({ message: "Error fetching latest vendors", error: error.message });
   }
 };
+
+export const getAllRides = async (req, res) => {
+  try {
+    const rides = await Event.find({ isActive: true })
+      .populate('vendorId', 'businessName email phone')
+      .sort({ eventDate: -1 });
+
+    res.status(200).json({
+      message: 'All rides fetched successfully',
+      rides
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching rides', error: error.message });
+  }
+};
+
+export const createRideByAdmin = async (req, res) => {
+  try {
+    const rideData = {
+      ...req.body,
+      isActive: true
+    };
+    
+    if (!rideData.vendorId) {
+      delete rideData.vendorId;
+    }
+    
+    const newRide = new Event(rideData);
+    await newRide.save();
+    
+    const populatedRide = await Event.findById(newRide._id)
+      .populate('vendorId', 'businessName email phone');
+
+    res.status(201).json({
+      message: 'Ride created successfully',
+      ride: populatedRide
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating ride', error: error.message });
+  }
+};
+
+export const updateRideByAdmin = async (req, res) => {
+  try {
+    const { rideId } = req.params;
+    const updateData = req.body;
+    
+    const updatedRide = await Event.findByIdAndUpdate(
+      rideId,
+      updateData,
+      { new: true }
+    ).populate('vendorId', 'businessName email phone');
+
+    if (!updatedRide) {
+      return res.status(404).json({ message: 'Ride not found' });
+    }
+
+    res.status(200).json({
+      message: 'Ride updated successfully',
+      ride: updatedRide
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating ride', error: error.message });
+  }
+};
+
+export const deleteRideByAdmin = async (req, res) => {
+  try {
+    const { rideId } = req.params;
+    
+    const deletedRide = await Event.findByIdAndDelete(rideId);
+
+    if (!deletedRide) {
+      return res.status(404).json({ message: 'Ride not found' });
+    }
+
+    res.status(200).json({
+      message: 'Ride deleted successfully',
+      ride: deletedRide
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting ride', error: error.message });
+  }
+};
+
+export const getRidesByVendor = async (req, res) => {
+  try {
+    const { vendorId } = req.params;
+    
+    const rides = await Event.find({ vendorId, isActive: true })
+      .populate('vendorId', 'businessName email phone')
+      .sort({ eventDate: -1 });
+
+    res.status(200).json({
+      message: 'Vendor rides fetched successfully',
+      rides
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching vendor rides', error: error.message });
+  }
+};
+
