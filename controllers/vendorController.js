@@ -570,6 +570,26 @@ export const updateVendorProfile = async (req, res) => {
         updateData[key] = value;
       }
     }
+    
+    // Ensure businessType is properly handled
+    if (req.body.businessType) {
+      updateData.businessType = req.body.businessType;
+      
+      // Handle type-specific fields based on businessType
+      if (req.body.businessType === 'venue') {
+        if (req.body.venueType) {
+          updateData.venueType = req.body.venueType;
+        }
+        // Remove vendorType if switching to venue
+        updateData.$unset = { vendorType: 1 };
+      } else if (req.body.businessType === 'vendor') {
+        if (req.body.vendorType) {
+          updateData.vendorType = req.body.vendorType;
+        }
+        // Remove venueType if switching to vendor
+        updateData.$unset = { venueType: 1 };
+      }
+    }
 
     // Handle pricing data from multiple possible sources
     let pricingData = null;
@@ -657,10 +677,17 @@ export const updateVendorProfile = async (req, res) => {
       updateData.profilePicture = req.fileUrl;
     }
 
+    // Prepare update operations
+    const updateOperations = { $set: updateData };
+    if (updateData.$unset) {
+      updateOperations.$unset = updateData.$unset;
+      delete updateData.$unset; // Remove from $set operation
+    }
+
     // Update the vendor profile
     const updatedVendor = await Vendor.findByIdAndUpdate(
       vendorId,
-      { $set: updateData },
+      updateOperations,
       { new: true }
     );
 
