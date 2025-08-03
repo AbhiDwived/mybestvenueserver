@@ -411,7 +411,9 @@ export const getAllVendors = async (req, res) => {
     const formattedVendors = vendors.map((vendor) => ({
       _id: vendor._id,
       businessName: vendor.businessName,
+      businessType: vendor.businessType,
       vendorType: vendor.vendorType,
+      venueType: vendor.venueType,
       email: vendor.email,
       phone: vendor.phone,
       address:vendor.address || {},

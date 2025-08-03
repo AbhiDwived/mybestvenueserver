@@ -40,4 +40,36 @@ router.post('/image',
   }
 );
 
+// Upload profile picture
+router.post('/profile-picture', 
+  upload.single('profilePicture'),
+  (req, res, next) => {
+    req.imagePath = 'profiles';
+    next();
+  },
+  uploadToStorage,
+  (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No image file provided'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Profile picture uploaded successfully',
+        url: req.imageUrl || req.fileUrl
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: 'Error uploading profile picture',
+        error: error.message
+      });
+    }
+  }
+);
+
 export default router;

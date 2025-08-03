@@ -40,7 +40,7 @@ const getImageKitFileId = (url) => {
 
 // Create vendor by admin (no OTP verification required)
 export const createVendorByAdmin = async (req, res) => {
-  const { businessName, businessType, vendorType, venueType, contactName, email, phone, password, serviceAreas } = req.body;
+  const { businessName, businessType, vendorType, venueType, contactName, email, phone, password, serviceAreas, profilePictureUrl } = req.body;
 
   try {
     const vendorExists = await Vendor.findOne({ email });
@@ -50,19 +50,8 @@ export const createVendorByAdmin = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
     
-    let profilePicture = null;
-    if (req.file) {
-      try {
-        const response = await imagekit.upload({
-          file: req.file.buffer.toString('base64'),
-          fileName: `vendor_profile_${Date.now()}_${req.file.originalname}`,
-          folder: 'vendor-profiles'
-        });
-        profilePicture = response.url;
-      } catch (uploadError) {
-        console.error('File upload error:', uploadError);
-      }
-    }
+    // Use the uploaded profile picture URL from S3/ImageKit
+    let profilePicture = profilePictureUrl || null;
 
     const vendorData = {
       businessName,
