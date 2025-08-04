@@ -38,7 +38,7 @@ import { protect } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Register route with storage upload
+// User registration
 router.post(
   "/register",
   validate(userValidation.register),
@@ -48,22 +48,31 @@ router.post(
   register
 );
 
+// Verify OTP for user registration
 router.post("/verify-otp", verifyOtp);
 
+// Resend OTP for user registration
 router.post("/resend-otp", resendOtp);
 
-// Login route
+// User login
 router.post("/login", validate(userValidation.login), login);
 
-// Forgot Password with OTP
+// Forgot password
 router.post("/forgot_password", forgotPassword);
+
+// Verify password reset OTP
 router.post("/verify_password_reset", verifyPasswordReset);
+
+// Reset password
 router.post("/reset_password", resetPassword);
+
+// Resend password reset OTP
 router.post("/resend-password-reset-otp", resendPasswordResetOtp);
 
+// Get user profile
 router.get("/UserProfile",VerifyUser, getUserProfile);
 
-// Update profile route with storage upload
+// Update user profile
 router.put(
   "/update-profile/:userId",
   VerifyUser,
@@ -74,42 +83,49 @@ router.put(
   updateProfile
 );
 
-// Delete user route (should accept userId as a URL parameter)
+// Delete user account
 router.delete("/delete/:userId", VerifyUser, deleteUser);
 
-// Wishlist functionality (protected)
+// Add venue to wishlist
 router.post("/wishlist/:venueId", VerifyUser, addToWishlist);
+
+// Remove venue from wishlist
 router.delete("/wishlist/:venueId", VerifyUser, removeFromWishlist);
+
+// Get user's wishlist
 router.get("/wishlist", VerifyUser, getWishlist);
 
+// User logout
 router.post("/logout", logout);
 
-// ############### user inquiry route ####################
-
-// router.post('/senduser_inquiry', VerifyUser,sendUserInquiry);
+// Update user inquiry
 router.put("/updateuser_inquiry/:inquiryId", VerifyUser, updateUserInquiry);
+
+// Get user inquiry list
 router.post("/getuser_inquiryList", VerifyUser, getUserInquiryList);
 
-// ########### reply route #######################
+// Add a message to a user inquiry
 router.post("/userInquiryMessage/:userId",  addUserInquiryMessage);
 
+// Update user password
 router.put("/update-password/:userId", updatePassword);
 
-//post
+// Submit contact form
 router.post("/contact", validate(contactValidation.create), submitContactForm);
 
-//get
+// Get all contact messages
 router.get("/contacts", getAllMessage);
 
+// Refresh authentication token
 router.post("/refresh-token", refreshToken);
 
-// Get user profile by ID (protected route, only for vendors and admins)
+// Get user profile by ID (for vendors and admins)
 router.get("/profile/:userId", getUserProfileById);
 
-// Add this route to test token expiry
+// Test token validity
 router.get("/check-token", protect, (req, res) => {
-  res.status(200).json({ 
-    message: "Token is valid", 
+  res.status(200).json({
+    message: "Token is valid",
     user: req.user,
     tokenExpiry: req.user.exp,
     currentTime: Math.floor(Date.now() / 1000)

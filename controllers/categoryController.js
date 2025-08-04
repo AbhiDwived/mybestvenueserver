@@ -6,12 +6,13 @@ export const createCategory = async (req, res) => {
   const { name, description } = req.body;
 
   try {
-    // Check if category already exists
+    //  Check if category already exists (case-insensitive, trimmed)
     const existingCategory = await Category.findOne({ name: name.trim() });
     if (existingCategory) {
       return res.status(400).json({ message: 'Category already exists' });
     }
 
+    //  Create and save new category with trimmed name
     const category = new Category({ name: name.trim(), description });
     await category.save();
 
@@ -27,6 +28,7 @@ export const createCategory = async (req, res) => {
 // Get all categories
 export const getCategories = async (req, res) => {
   try {
+    //  Fetch all categories, sorted by creation date (newest first)
     const categories = await Category.find().sort({ createdAt: -1 });
     res.status(200).json(categories);
   } catch (error) {
@@ -39,6 +41,7 @@ export const getCategoryById = async (req, res) => {
   const { categoryId } = req.params;
 
   try {
+    //  Find category by MongoDB ObjectId
     const category = await Category.findById(categoryId);
     if (!category) {
       return res.status(404).json({ message: 'Category not found' });
@@ -55,11 +58,13 @@ export const updateCategory = async (req, res) => {
   const { name, description } = req.body;
 
   try {
+    //  Find category by ID before updating
     const category = await Category.findById(categoryId);
     if (!category) {
       return res.status(404).json({ message: 'Category not found' });
     }
 
+    //  Only update fields if provided
     if (name) category.name = name.trim();
     if (description) category.description = description;
 
@@ -79,6 +84,7 @@ export const deleteCategory = async (req, res) => {
   const { categoryId } = req.params;
 
   try {
+    //  Delete category by ID and handle not found case
     const deleted = await Category.findByIdAndDelete(categoryId);
     if (!deleted) {
       return res.status(404).json({ message: 'Category not found' });

@@ -5,9 +5,10 @@ import mongoose from 'mongoose';
 export const getUserGuests = async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
+    // Fetch all guests for the user, newest first
     const guests = await Guest.find({ user: userId }).sort({ createdAt: -1 });
-    
+
     res.status(200).json({
       success: true,
       data: guests,
@@ -28,6 +29,7 @@ export const addGuest = async (req, res) => {
     const userId = req.user.id;
     const { name, email, phone, status } = req.body;
 
+    // Name is required for every guest
     if (!name) {
       return res.status(400).json({
         success: false,
@@ -35,6 +37,7 @@ export const addGuest = async (req, res) => {
       });
     }
 
+    // At least one contact (email or phone) is required
     if (!email && !phone) {
       return res.status(400).json({
         success: false,
@@ -74,6 +77,7 @@ export const updateGuest = async (req, res) => {
     const { guestId } = req.params;
     const { name, email, phone, status } = req.body;
 
+    // Validate MongoDB ObjectId format
     if (!mongoose.Types.ObjectId.isValid(guestId)) {
       return res.status(400).json({
         success: false,
@@ -81,7 +85,7 @@ export const updateGuest = async (req, res) => {
       });
     }
 
-    // Find the guest and make sure it belongs to the current user
+    // Ensure guest belongs to the current user
     const guest = await Guest.findOne({ _id: guestId, user: userId });
 
     if (!guest) {
@@ -97,7 +101,7 @@ export const updateGuest = async (req, res) => {
     if (phone !== undefined) guest.phone = phone;
     if (status) guest.status = status;
 
-    // Validate that either email or phone is provided
+    // Validate that either email or phone is provided after update
     if (!guest.email && !guest.phone) {
       return res.status(400).json({
         success: false,
@@ -129,6 +133,7 @@ export const updateGuestStatus = async (req, res) => {
     const { guestId } = req.params;
     const { status } = req.body;
 
+    // Validate MongoDB ObjectId format
     if (!mongoose.Types.ObjectId.isValid(guestId)) {
       return res.status(400).json({
         success: false,
@@ -136,6 +141,7 @@ export const updateGuestStatus = async (req, res) => {
       });
     }
 
+    // Only allow specific status values
     if (!status || !['pending', 'confirmed', 'declined'].includes(status)) {
       return res.status(400).json({
         success: false,
@@ -178,6 +184,7 @@ export const deleteGuest = async (req, res) => {
     const userId = req.user.id;
     const { guestId } = req.params;
 
+    // Validate MongoDB ObjectId format
     if (!mongoose.Types.ObjectId.isValid(guestId)) {
       return res.status(400).json({
         success: false,

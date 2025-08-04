@@ -11,16 +11,9 @@ dotenv.config();
 // Determine which storage service to use
 const STORAGE_TYPE = process.env.STORAGE_TYPE || 'imagekit'; // Default to imagekit if not specified
 
-/**
- * Upload a file to the configured storage service
- * @param {Buffer} fileBuffer - The file buffer
- * @param {string} originalName - Original filename
- * @param {string} mimeType - File MIME type
- * @param {string} folder - Folder path for the file
- * @returns {Promise<Object>} - Upload result with URL
- */
+// Upload a file to the configured storage service
 export const uploadFile = async (fileBuffer, originalName, mimeType, folder = 'uploads') => {
-  // Use S3 if configured, otherwise use ImageKit
+  // Deep comment: Use S3 if configured, otherwise use ImageKit
   if (STORAGE_TYPE === 's3') {
     return uploadToS3(fileBuffer, originalName, mimeType, folder);
   } else {
@@ -28,24 +21,17 @@ export const uploadFile = async (fileBuffer, originalName, mimeType, folder = 'u
   }
 };
 
-/**
- * Upload a file to S3
- * @param {Buffer} fileBuffer - The file buffer
- * @param {string} originalName - Original filename
- * @param {string} mimeType - File MIME type
- * @param {string} folder - Folder path for the file
- * @returns {Promise<Object>} - Upload result with URL
- */
+// Upload a file to S3
 const uploadToS3 = async (fileBuffer, originalName, mimeType, folder) => {
   try {
-    // Generate unique filename
+    // Deep comment: Generate unique filename using timestamp and UUID
     const fileExtension = path.extname(originalName);
     const fileName = `${Date.now()}-${uuidv4()}${fileExtension}`;
     
-    // Create the full key (path in S3)
+    // Deep comment: Create the full key (path in S3)
     const key = `${folder}/${fileName}`;
 
-    // Upload to S3
+    // Deep comment: Prepare S3 upload parameters
     const params = {
       Bucket: S3_BUCKET_NAME,
       Key: key,
@@ -57,7 +43,7 @@ const uploadToS3 = async (fileBuffer, originalName, mimeType, folder) => {
     const command = new PutObjectCommand(params);
     await s3Client.send(command);
 
-    // Generate S3 URL
+    // Deep comment: Generate S3 URL for the uploaded file
     const s3Url = `https://${S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
     
     return {
@@ -73,19 +59,13 @@ const uploadToS3 = async (fileBuffer, originalName, mimeType, folder) => {
   }
 };
 
-/**
- * Upload a file to ImageKit
- * @param {Buffer} fileBuffer - The file buffer
- * @param {string} originalName - Original filename
- * @param {string} folder - Folder path for the file
- * @returns {Promise<Object>} - Upload result with URL
- */
+// Upload a file to ImageKit
 const uploadToImageKit = async (fileBuffer, originalName, folder) => {
   try {
-    // Convert buffer to base64
+    // Deep comment: Convert buffer to base64 for ImageKit upload
     const fileStr = fileBuffer.toString('base64');
 
-    // Upload to ImageKit
+    // Deep comment: Upload to ImageKit with folder path or default
     const response = await imagekit.upload({
       file: fileStr,
       fileName: `${Date.now()}-${originalName}`,
@@ -105,16 +85,12 @@ const uploadToImageKit = async (fileBuffer, originalName, folder) => {
   }
 };
 
-/**
- * Delete a file from storage
- * @param {string} fileUrl - The file URL or key
- * @returns {Promise<boolean>} - True if deletion was successful
- */
+// Delete a file from storage (S3 or ImageKit)
 export const deleteFile = async (fileUrl) => {
   try {
     if (!fileUrl) return false;
     
-    // Determine if it's an S3 or ImageKit URL
+    // Deep comment: Determine if it's an S3 or ImageKit URL
     if (fileUrl.includes('amazonaws.com')) {
       return await deleteFromS3(fileUrl);
     } else if (fileUrl.includes('imagekit.io')) {
@@ -128,14 +104,10 @@ export const deleteFile = async (fileUrl) => {
   }
 };
 
-/**
- * Delete a file from S3
- * @param {string} fileUrl - The S3 file URL or key
- * @returns {Promise<boolean>} - True if deletion was successful
- */
+// Delete a file from S3
 const deleteFromS3 = async (fileUrl) => {
   try {
-    // Extract key from URL if it's a full URL
+    // Deep comment: Extract key from URL if it's a full S3 URL
     let key = fileUrl;
     if (fileUrl.includes('amazonaws.com')) {
       const urlObj = new URL(fileUrl);
@@ -156,14 +128,10 @@ const deleteFromS3 = async (fileUrl) => {
   }
 };
 
-/**
- * Delete a file from ImageKit
- * @param {string} fileUrl - The ImageKit URL or fileId
- * @returns {Promise<boolean>} - True if deletion was successful
- */
+// Delete a file from ImageKit
 const deleteFromImageKit = async (fileUrl) => {
   try {
-    // Extract fileId from URL if it's a full URL
+    // Deep comment: Extract fileId from ImageKit URL if needed
     let fileId = fileUrl;
     if (fileUrl.includes('imagekit.io')) {
       // Example URL: https://ik.imagekit.io/your_account/folder/filename_fileId
@@ -180,14 +148,10 @@ const deleteFromImageKit = async (fileUrl) => {
   }
 };
 
-/**
- * Generate a signed URL for an S3 object (for private files)
- * @param {string} key - The S3 object key
- * @param {number} expiresIn - Expiration time in seconds
- * @returns {Promise<string>} - Signed URL
- */
+// Generate a signed URL for an S3 object (for private files)
 export const getSignedFileUrl = async (key, expiresIn = 3600) => {
   try {
+    // Deep comment: Generate a signed URL for secure access to private S3 objects
     const command = new GetObjectCommand({
       Bucket: S3_BUCKET_NAME,
       Key: key

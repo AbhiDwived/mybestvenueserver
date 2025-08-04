@@ -16,6 +16,7 @@ const storage = multer.memoryStorage();
 
 // File filter to allow only JPEG and PNG images
 const fileFilter = (req, file, cb) => {
+    //  Log file details for debugging and only allow JPEG/PNG
     console.log('📄 File filter check:', {
         originalname: file.originalname,
         mimetype: file.mimetype,
@@ -37,9 +38,10 @@ const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB limit
+        fileSize: 10 * 1024 * 1024 //  10MB file size limit
     },
     onError: (err, next) => {
+        //  Handle Multer errors and pass to next middleware
         console.error('❌ Multer error:', err);
         next(err);
     }
@@ -49,19 +51,20 @@ const upload = multer({
 export const uploadToS3 = async (req, res, next) => {
     try {
         if (!req.file) {
+            //  Skip upload if no file present
             return next();
         }
 
-        // Generate unique filename
+        //  Generate unique filename using timestamp and original extension
         const timestamp = Date.now();
         const fileExtension = path.extname(req.file.originalname);
         const fileName = `${timestamp}-${req.file.originalname.replace(fileExtension, '')}${fileExtension}`;
         
-        // Determine folder path
+        //  Use provided folder path or default to 'uploads'
         const folderPath = req.imagePath || 'uploads';
         const key = `${folderPath}/${fileName}`;
 
-        // Upload to S3
+        //  Prepare S3 upload parameters
         const params = {
             Bucket: S3_BUCKET_NAME,
             Key: key,
@@ -73,10 +76,8 @@ export const uploadToS3 = async (req, res, next) => {
         const command = new PutObjectCommand(params);
         await s3Client.send(command);
 
-        // Generate S3 URL
+        //  Generate S3 URL and attach to request for downstream use
         const s3Url = `https://${S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
-        
-        // Add S3 URL to request object
         req.fileUrl = s3Url;
         req.fileKey = key; // Store the key for potential deletion later
         
@@ -91,20 +92,21 @@ export const uploadToS3 = async (req, res, next) => {
 export const uploadToImageKit = async (req, res, next) => {
     try {
         if (!req.file) {
+            //  Skip upload if no file present
             return next();
         }
 
-        // Convert buffer to base64
+        //  Convert buffer to base64 for ImageKit upload
         const fileStr = req.file.buffer.toString('base64');
 
-        // Upload to ImageKit
+        //  Upload to ImageKit with folder path or default
         const response = await imagekit.upload({
             file: fileStr,
             fileName: `${Date.now()}-${req.file.originalname}`,
             folder: req.imagePath || 'uploads' // Default folder if not specified
         });
 
-        // Add ImageKit URL to request object
+        //  Attach ImageKit URL and fileId to request for downstream use
         req.fileUrl = response.url;
         req.fileId = response.fileId; // Store the fileId for potential deletion later
         
@@ -119,10 +121,11 @@ export const uploadToImageKit = async (req, res, next) => {
 export const uploadToStorage = async (req, res, next) => {
     try {
         if (!req.file) {
+            //  Skip upload if no file present
             return next();
         }
         
-        // Use S3 or ImageKit based on configuration
+        //  Use S3 or ImageKit based on configuration
         if (STORAGE_TYPE === 's3') {
             await uploadToS3(req, res, () => {});
         } else {
@@ -138,6 +141,7 @@ export const uploadToStorage = async (req, res, next) => {
 
 // Helper function to determine image path based on route
 export const setImagePath = (path) => (req, res, next) => {
+    //  Attach the desired image folder path to the request for downstream use
     req.imagePath = path;
     next();
 };

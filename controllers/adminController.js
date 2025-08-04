@@ -22,34 +22,24 @@ import { logUserLogin } from '../utils/activityLogger.js';
 import { generateTokens, verifyRefreshToken } from '../middlewares/authMiddleware.js';
 import Event from '../models/Event.js';
 
-/**
- * Register a new admin
- * 
- * Creates a new admin account with email verification via OTP.
- * Sends verification email with 6-digit OTP that expires in 10 minutes.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.body - Request body containing admin details
- * @param {string} req.body.name - Admin's full name
- * @param {string} req.body.email - Admin's email address
- * @param {string} req.body.password - Admin's password (will be hashed)
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with success status and admin ID
- */
+// Register a new admin (with OTP email verification)
 export const registerAdmin = async (req, res) => {
   const { name, email, password } = req.body;
-
   try {
+    // Check if admin already exists
     const adminExists = await Admin.findOne({ email });
     if (adminExists) {
       return res.status(400).json({ message: 'Admin already exists' });
     }
 
+    // Hash password for security
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Generate OTP and expiry
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = Date.now() + 10 * 60 * 1000;
+    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
+    // Save new admin with OTP (not verified yet)
     const newAdmin = new Admin({
       name,
       email,
@@ -58,9 +48,9 @@ export const registerAdmin = async (req, res) => {
       otpExpires,
       isVerified: false,
     });
-
     await newAdmin.save();
 
+    // Send OTP email (dynamic import for sendEmail utility)
     try {
       const { sendEmail } = await import('../utils/sendEmail.js');
       await sendEmail({
@@ -82,48 +72,32 @@ export const registerAdmin = async (req, res) => {
   }
 };
 
-/**
- * Verify admin OTP
- * 
- * Verifies the OTP sent to admin's email during registration.
- * Upon successful verification, marks admin as verified and returns JWT token.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.body - Request body
- * @param {string} req.body.adminId - Admin's database ID
- * @param {string} req.body.otp - 6-digit OTP code
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with JWT token and admin details
- */
+// Verify admin OTP (for registration)
 export const verifyAdminOtp = async (req, res) => {
   const { adminId, otp } = req.body;
-
   try {
     const admin = await Admin.findById(adminId).select('+otp +otpExpires');
-
     if (!admin) {
       return res.status(404).json({ message: 'Admin not found' });
     }
-
     if (admin.isVerified) {
       return res.status(400).json({ message: 'Admin already verified' });
     }
-
+    // Check OTP and expiry
     if (admin.otp !== otp || admin.otpExpires < Date.now()) {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
-
     admin.isVerified = true;
     admin.otp = undefined;
     admin.otpExpires = undefined;
     await admin.save();
 
+    // Issue JWT token after verification
     const token = jwt.sign(
       { id: admin._id, email: admin.email, role: admin.role },
       process.env.JWT_SECRET,
       { expiresIn: '7D' }
     );
-
     res.status(200).json({
       message: 'Admin verified successfully',
       token,
@@ -139,38 +113,25 @@ export const verifyAdminOtp = async (req, res) => {
   }
 };
 
-/**
- * Resend admin OTP
- * 
- * Generates and sends a new OTP to admin's email if the previous one expired.
- * Only works for unverified admin accounts.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.body - Request body
- * @param {string} req.body.adminId - Admin's database ID
- * @param {Object} res - Express response object
- * @returns {Object} JSON response confirming OTP resent
- */
+// Resend admin OTP (for unverified admins)
 export const resendAdminOtp = async (req, res) => {
   const { adminId } = req.body;
-
   try {
     const admin = await Admin.findById(adminId);
     if (!admin) {
       return res.status(404).json({ message: 'Admin not found' });
     }
-
     if (admin.isVerified) {
       return res.status(400).json({ message: 'Admin already verified' });
     }
-
+    // Generate new OTP and expiry
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000;
-
     admin.otp = otp;
     admin.otpExpires = otpExpires;
     await admin.save();
 
+    // Send new OTP email
     try {
       const { sendEmail } = await import('../utils/sendEmail.js');
       await sendEmail({
@@ -192,40 +153,26 @@ export const resendAdminOtp = async (req, res) => {
   }
 };
 
-/**
- * Admin login
- * 
- * Authenticates admin with email and password.
- * Returns JWT token and logs the login activity.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.body - Request body
- * @param {string} req.body.email - Admin's email address
- * @param {string} req.body.password - Admin's password
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with JWT token and admin details
- */
+// Admin login (with JWT and login activity logging)
 export const loginAdmin = async (req, res) => {
   const { email, password } = req.body;
-
   try {
     const admin = await Admin.findOne({ email }).select('+password');
     if (!admin) {
       return res.status(404).json({ message: 'Admin not found' });
     }
-
+    // Compare password hash
     const isMatch = await bcrypt.compare(password, admin.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
-
+    // Issue JWT token
     const token = jwt.sign(
       { id: admin._id, email: admin.email, role: admin.role },
       process.env.JWT_SECRET,
       { expiresIn: '7D' }
     );
-
-    // Log the login activity
+    // Log login activity (for auditing)
     await logUserLogin({
       _id: admin._id,
       name: admin.name,
@@ -248,19 +195,7 @@ export const loginAdmin = async (req, res) => {
   }
 };
 
-/**
- * Update admin profile
- * 
- * Updates admin profile information including name, email, phone, profile photo, and password.
- * Password is hashed before saving if provided.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.params - Request parameters
- * @param {string} req.params.adminId - Admin's database ID
- * @param {Object} req.body - Request body with update fields
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with updated admin details
- */
+// Update admin profile (name, email, phone, photo, password)
 export const updateAdminProfile = async (req, res) => {
   const { adminId } = req.params;
   const {
@@ -270,26 +205,21 @@ export const updateAdminProfile = async (req, res) => {
     profilePhoto,
     password,
   } = req.body;
-
   try {
     const admin = await Admin.findById(adminId).select('+password');
-
     if (!admin) {
       return res.status(404).json({ message: 'Admin not found' });
     }
-
     if (name) admin.name = name;
     if (email) admin.email = email;
     if (phone) admin.phone = phone;
     if (profilePhoto) admin.profilePhoto = profilePhoto;
-
+    // Hash password if updating
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 12);
       admin.password = hashedPassword;
     }
-
     await admin.save();
-
     res.status(200).json({
       message: 'Admin profile updated successfully',
       admin: {
@@ -306,33 +236,19 @@ export const updateAdminProfile = async (req, res) => {
   }
 };
 
-/**
- * Approve vendor
- * 
- * Approves a vendor by setting their isApproved status to true.
- * Only approved vendors can be displayed to users.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.params - Request parameters
- * @param {string} req.params.vendorId - Vendor's database ID
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with approved vendor details
- */
+// Approve vendor (set isApproved to true)
 export const approveVendor = async (req, res) => {
   const { vendorId } = req.params;
-
   try {
-    // Find the vendor by ID and update their approval status
+    // Find and update vendor
     const updatedVendor = await Vendor.findByIdAndUpdate(
       vendorId,
       { isApproved: true },
-      { new: true } // Return the updated document
+      { new: true }
     );
-
     if (!updatedVendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
-
     res.status(200).json({
       message: 'Vendor approved successfully',
       vendor: updatedVendor,
@@ -342,20 +258,10 @@ export const approveVendor = async (req, res) => {
   }
 };
 
-/**
- * Get pending vendors
- * 
- * Retrieves all vendors that are waiting for admin approval.
- * Returns vendors with isApproved status set to false.
- * 
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with array of pending vendors
- */
+// Get all pending vendors (isApproved: false)
 export const getPendingVendors = async (req, res) => {
   try {
     const pendingVendors = await Vendor.find({ isApproved: false });
-
     res.status(200).json({
       message: 'Pending vendors fetched successfully',
       vendors: pendingVendors,
@@ -368,36 +274,23 @@ export const getPendingVendors = async (req, res) => {
   }
 };
 
-
-
-/**
- * Get all approved vendors
- * 
- * Retrieves all approved vendors with formatted data including location information.
- * Also returns unique locations from service areas and addresses.
- * 
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with vendors array and unique locations
- */
+// Get all approved vendors (with optional location filter and unique locations)
 export const getAllVendors = async (req, res) => {
   try {
     const { location } = req.query;
-
-    // If location is provided, filter by location
+    // If location is provided, filter by city or service area (case-insensitive)
     const locationFilter = location ? {
       $or: [
         { 'address.city': { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } },
         { serviceAreas: { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } }
       ]
     } : {};
-
     const vendors = await Vendor.find({
       ...locationFilter,
       isApproved: true
     });
 
-    // Get unique locations from both serviceAreas and addresses
+    // Collect unique locations from serviceAreas and address.city
     const uniqueLocations = new Set();
     vendors.forEach(vendor => {
       if (vendor.serviceAreas && Array.isArray(vendor.serviceAreas)) {
@@ -408,6 +301,7 @@ export const getAllVendors = async (req, res) => {
       }
     });
 
+    // Format vendor data for frontend
     const formattedVendors = vendors.map((vendor) => ({
       _id: vendor._id,
       businessName: vendor.businessName,
@@ -416,7 +310,7 @@ export const getAllVendors = async (req, res) => {
       venueType: vendor.venueType,
       email: vendor.email,
       phone: vendor.phone,
-      address:vendor.address || {},
+      address: vendor.address || {},
       services: vendor.services || [],
       serviceAreas: vendor.serviceAreas || [],
       pricing: vendor.pricing || [],
@@ -429,7 +323,7 @@ export const getAllVendors = async (req, res) => {
       galleryImages: vendor.galleryImages || [],
       isApproved: vendor.isApproved,
       appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
-      createdAt: vendor.createdAt // Adding createdAt for sorting
+      createdAt: vendor.createdAt
     }));
 
     res.status(200).json({
@@ -442,28 +336,14 @@ export const getAllVendors = async (req, res) => {
   }
 };
 
-/**
- * Delete vendor by admin
- * 
- * Allows admin to delete a vendor from the system.
- * This is a permanent action and cannot be undone.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.params - Request parameters
- * @param {string} req.params.vendorId - Vendor's database ID
- * @param {Object} res - Express response object
- * @returns {Object} JSON response confirming vendor deletion
- */
+// Delete vendor by admin (permanent)
 export const deleteVendorByAdmin = async (req, res) => {
   const { vendorId } = req.params;
-
   try {
     const deletedVendor = await Vendor.findByIdAndDelete(vendorId);
-
     if (!deletedVendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
-
     res.status(200).json({
       message: 'Vendor deleted successfully by admin',
       vendor: deletedVendor,
@@ -473,20 +353,10 @@ export const deleteVendorByAdmin = async (req, res) => {
   }
 };
 
-/**
- * Get all users
- * 
- * Retrieves all registered users from the system.
- * Excludes sensitive information like passwords.
- * 
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with formatted users array
- */
+// Get all users (excluding passwords)
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password'); // Exclude sensitive fields
-
+    const users = await User.find().select('-password');
     const formattedUsers = users.map((user) => ({
       id: user._id,
       name: user.name,
@@ -495,7 +365,6 @@ export const getAllUsers = async (req, res) => {
       createdAt: user.createdAt?.toISOString().split('T')[0] || 'N/A',
       role: user.role || 'user',
     }));
-
     res.status(200).json({
       message: 'Users fetched successfully',
       users: formattedUsers,
@@ -505,28 +374,14 @@ export const getAllUsers = async (req, res) => {
   }
 };
 
-/**
- * Delete user by admin
- * 
- * Allows admin to delete a user account from the system.
- * This is a permanent action and cannot be undone.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.params - Request parameters
- * @param {string} req.params.userId - User's database ID
- * @param {Object} res - Express response object
- * @returns {Object} JSON response confirming user deletion
- */
+// Delete user by admin (permanent)
 export const deleteUserByAdmin = async (req, res) => {
   const { userId } = req.params;
-
   try {
     const deletedUser = await User.findByIdAndDelete(userId);
-
     if (!deletedUser) {
       return res.status(404).json({ message: 'User not found' });
     }
-
     res.status(200).json({
       message: 'User deleted successfully by admin',
       user: deletedUser,
@@ -536,43 +391,27 @@ export const deleteUserByAdmin = async (req, res) => {
   }
 };
 
-/**
- * Get vendor counts by location
- * 
- * Returns vendor counts grouped by category for a specific location.
- * Supports 'all-india' as a special location to get counts for all vendors.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.params - Request parameters
- * @param {string} req.params.location - Location name or 'all-india'
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with category counts and total vendors
- */
+// Get vendor counts by location (grouped by vendorType)
 export const getVendorCountsByLocation = async (req, res) => {
   try {
     const { location } = req.params;
-    
-    // If location is 'all-india', don't filter by location
+    // Special case: 'all-india' returns all vendors
     const locationFilter = location.toLowerCase() === 'all-india' ? {} : {
       $or: [
         { 'address.city': { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } },
         { serviceAreas: { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } }
       ]
     };
-
-    // Get all approved vendors for the location
     const vendors = await Vendor.find({
       ...locationFilter,
       isApproved: true
     });
-
-    // Count vendors by category
+    // Count vendors by vendorType
     const categoryCounts = vendors.reduce((acc, vendor) => {
       const category = vendor.vendorType;
       acc[category] = (acc[category] || 0) + 1;
       return acc;
     }, {});
-
     res.status(200).json({
       message: "Vendor counts fetched successfully",
       categoryCounts,
@@ -583,39 +422,23 @@ export const getVendorCountsByLocation = async (req, res) => {
   }
 };
 
-/**
- * Refresh JWT token
- * 
- * Generates new access and refresh tokens using a valid refresh token.
- * Used to maintain user session without requiring re-login.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.body - Request body
- * @param {string} req.body.refreshToken - Valid refresh token
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with new tokens and admin details
- */
+// Refresh JWT token (using refresh token)
 export const refreshToken = async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    
     if (!refreshToken) {
       return res.status(401).json({ message: 'Refresh token required' });
     }
-
     const decoded = verifyRefreshToken(refreshToken);
     if (!decoded) {
       return res.status(401).json({ message: 'Invalid refresh token' });
     }
-
     const admin = await Admin.findById(decoded.id).select('-password');
     if (!admin) {
       return res.status(401).json({ message: 'Admin not found' });
     }
-
     // Generate new tokens
     const tokens = generateTokens({ id: admin._id, email: admin.email, role: 'admin' });
-
     res.status(200).json({
       message: 'Token refreshed successfully',
       token: tokens.accessToken,
@@ -635,37 +458,21 @@ export const refreshToken = async (req, res) => {
   }
 };
 
-/**
- * Get latest vendors by type
- * 
- * Retrieves the most recently added vendor from each vendor type.
- * Useful for displaying diverse vendor categories on the homepage.
- * 
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with latest vendors grouped by type
- */
+// Get latest vendor for each vendorType (for homepage diversity)
 export const getLatestVendorsByType = async (req, res) => {
   try {
-    // Get all approved vendors
+    // Get all approved vendors, newest first
     const vendors = await Vendor.find({ isApproved: true })
-      .sort({ createdAt: -1 }); // Sort by creation date descending
-
-    // Group vendors by type and get the latest from each type
+      .sort({ createdAt: -1 });
+    // Group by vendorType, keep only latest per type
     const vendorsByType = {};
     vendors.forEach(vendor => {
       if (!vendor.vendorType) return;
-      
-      // Since we sorted by createdAt, the first vendor of each type will be the latest
       if (!vendorsByType[vendor.vendorType]) {
         vendorsByType[vendor.vendorType] = vendor;
       }
     });
-
-    // Convert the grouped vendors object to an array
     const latestVendors = Object.values(vendorsByType);
-
-    // Format the vendors
     const formattedVendors = latestVendors.map((vendor) => ({
       _id: vendor._id,
       businessName: vendor.businessName,
@@ -689,7 +496,6 @@ export const getLatestVendorsByType = async (req, res) => {
       appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
       createdAt: vendor.createdAt
     }));
-
     res.status(200).json({
       message: "Latest vendors by type fetched successfully",
       vendors: formattedVendors
@@ -699,12 +505,12 @@ export const getLatestVendorsByType = async (req, res) => {
   }
 };
 
+// Get all active rides (events) for admin
 export const getAllRides = async (req, res) => {
   try {
     const rides = await Event.find({ isActive: true })
       .populate('vendorId', 'businessName email phone')
       .sort({ eventDate: -1 });
-
     res.status(200).json({
       message: 'All rides fetched successfully',
       rides
@@ -714,23 +520,21 @@ export const getAllRides = async (req, res) => {
   }
 };
 
+// Create a new ride (event) by admin
 export const createRideByAdmin = async (req, res) => {
   try {
     const rideData = {
       ...req.body,
       isActive: true
     };
-    
+    // If vendorId is not provided, remove it (optional ride)
     if (!rideData.vendorId) {
       delete rideData.vendorId;
     }
-    
     const newRide = new Event(rideData);
     await newRide.save();
-    
     const populatedRide = await Event.findById(newRide._id)
       .populate('vendorId', 'businessName email phone');
-
     res.status(201).json({
       message: 'Ride created successfully',
       ride: populatedRide
@@ -740,21 +544,19 @@ export const createRideByAdmin = async (req, res) => {
   }
 };
 
+// Update ride (event) by admin
 export const updateRideByAdmin = async (req, res) => {
   try {
     const { rideId } = req.params;
     const updateData = req.body;
-    
     const updatedRide = await Event.findByIdAndUpdate(
       rideId,
       updateData,
       { new: true }
     ).populate('vendorId', 'businessName email phone');
-
     if (!updatedRide) {
       return res.status(404).json({ message: 'Ride not found' });
     }
-
     res.status(200).json({
       message: 'Ride updated successfully',
       ride: updatedRide
@@ -764,16 +566,14 @@ export const updateRideByAdmin = async (req, res) => {
   }
 };
 
+// Delete ride (event) by admin
 export const deleteRideByAdmin = async (req, res) => {
   try {
     const { rideId } = req.params;
-    
     const deletedRide = await Event.findByIdAndDelete(rideId);
-
     if (!deletedRide) {
       return res.status(404).json({ message: 'Ride not found' });
     }
-
     res.status(200).json({
       message: 'Ride deleted successfully',
       ride: deletedRide
@@ -783,14 +583,13 @@ export const deleteRideByAdmin = async (req, res) => {
   }
 };
 
+// Get all rides for a specific vendor
 export const getRidesByVendor = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    
     const rides = await Event.find({ vendorId, isActive: true })
       .populate('vendorId', 'businessName email phone')
       .sort({ eventDate: -1 });
-
     res.status(200).json({
       message: 'Vendor rides fetched successfully',
       rides

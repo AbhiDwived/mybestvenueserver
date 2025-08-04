@@ -16,25 +16,13 @@ import Vendor from '../models/Vendor.js';
 import User from '../models/User.js';
 import { uploadToImageKit } from '../middlewares/upload.js';
 
-/**
- * Create a new blog post
- * 
- * Creates a new blog post with image upload. Only vendors can create blogs.
- * Requires title, content, excerpt, category, and an image file.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.body - Request body with blog data
- * @param {Object} req.file - Uploaded image file
- * @param {Object} req.user - Authenticated user (vendor)
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with created blog details
- */
+// Create a new blog post (only vendors can create)
 export const createBlog = async (req, res) => {
     try {
         const { title, content, excerpt, category } = req.body;
         const vendorId = req.user.id;
 
-        // Validate image
+        // Image is required for every blog post
         if (!req.file) {
             return res.status(400).json({
                 success: false,
@@ -42,7 +30,7 @@ export const createBlog = async (req, res) => {
             });
         }
 
-        // Create blog with image
+        // Save blog with image path (from cloud or local)
         const blog = new Blog({
             title,
             content,
@@ -68,16 +56,7 @@ export const createBlog = async (req, res) => {
     }
 };
 
-/**
- * Get all blog posts
- * 
- * Retrieves all blog posts with author information.
- * Results are sorted by creation date (newest first).
- * 
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with array of blog posts
- */
+// Get all blog posts (with author info, newest first)
 export const getAllBlogs = async (req, res) => {
     try {
         const blogs = await Blog.find()
@@ -98,18 +77,7 @@ export const getAllBlogs = async (req, res) => {
     }
 };
 
-/**
- * Get blogs by category
- * 
- * Retrieves all blog posts belonging to a specific category.
- * Results include author information and are sorted by creation date.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.params - Request parameters
- * @param {string} req.params.name - Category name
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with filtered blog posts
- */
+// Get blogs by category (with author info)
 export const getBlogsByCategory = async (req, res) => {
     try {
         const { name } = req.params;
@@ -131,21 +99,11 @@ export const getBlogsByCategory = async (req, res) => {
     }
 };
 
-/**
- * Search blog posts
- * 
- * Searches blog posts by keyword in title, content, or category.
- * Uses case-insensitive regex matching for flexible search.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.query - Query parameters
- * @param {string} req.query.keyword - Search keyword
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with matching blog posts
- */
+// Search blog posts by keyword (title, content, or category)
 export const searchBlogs = async (req, res) => {
     try {
         const { keyword } = req.query;
+        // Flexible search using regex, case-insensitive
         const searchQuery = keyword ? {
             $or: [
                 { title: { $regex: keyword, $options: 'i' } },
@@ -172,18 +130,7 @@ export const searchBlogs = async (req, res) => {
     }
 };
 
-/**
- * Get single blog post by ID
- * 
- * Retrieves a specific blog post by its ID with author information.
- * Returns 404 if blog post is not found.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.params - Request parameters
- * @param {string} req.params.id - Blog post ID
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with blog post details
- */
+// Get single blog post by ID (with author info)
 export const getBlogById = async (req, res) => {
     try {
         const blog = await Blog.findById(req.params.id)
@@ -209,27 +156,13 @@ export const getBlogById = async (req, res) => {
     }
 };
 
-/**
- * Update blog post
- * 
- * Updates an existing blog post. Only the author (vendor) can update their own blog.
- * Supports updating title, content, excerpt, category, and optionally the image.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.params - Request parameters
- * @param {string} req.params.id - Blog post ID
- * @param {Object} req.body - Request body with update data
- * @param {Object} req.file - Optional new image file
- * @param {Object} req.user - Authenticated user (vendor)
- * @param {Object} res - Express response object
- * @returns {Object} JSON response with updated blog details
- */
+// Update blog post (only author/vendor can update)
 export const updateBlog = async (req, res) => {
     try {
         const { title, content, excerpt, category } = req.body;
         const vendorId = req.user.id;
 
-        // Check if blog exists and belongs to the vendor
+        // Only the author/vendor can update their own blog
         const existingBlog = await Blog.findOne({
             _id: req.params.id,
             author: vendorId
@@ -249,7 +182,7 @@ export const updateBlog = async (req, res) => {
             category
         };
 
-        // If new image is uploaded, update the image path
+        // If a new image is uploaded, update the image path
         if (req.file) {
             updateData.image = req.file.location || `/uploads/blogs/${req.file.filename}`;
         }
@@ -274,19 +207,7 @@ export const updateBlog = async (req, res) => {
     }
 };
 
-/**
- * Delete blog post
- * 
- * Deletes a blog post. Only the author (vendor) or admin can delete a blog.
- * This is a permanent action and cannot be undone.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.params - Request parameters
- * @param {string} req.params.id - Blog post ID
- * @param {Object} req.user - Authenticated user
- * @param {Object} res - Express response object
- * @returns {Object} JSON response confirming deletion
- */
+// Delete blog post (only author/vendor or admin can delete)
 export const deleteBlog = async (req, res) => {
     try {
         const blog = await Blog.findById(req.params.id);
@@ -298,7 +219,7 @@ export const deleteBlog = async (req, res) => {
             });
         }
 
-        // Check if user is admin or the blog author
+        // Only the author or an admin can delete the blog
         if (req.user.id !== blog.author.toString() && req.user.role !== 'admin') {
             return res.status(403).json({
                 success: false,

@@ -3,7 +3,6 @@ import Vendor from '../models/Vendor.js';
 import mongoose from 'mongoose';
 import { logBookingCreated, logBookingStatusUpdate } from '../utils/activityLogger.js';
 
-
 // Get all bookings for a user
 export const getUserBookings = async (req, res) => {
   try {
@@ -14,6 +13,7 @@ export const getUserBookings = async (req, res) => {
       .populate('vendor', 'businessName email phone profilePhoto')
       .sort({ createdAt: -1 });
 
+    // Calculate total planned and spent amounts for user's bookings
     const totalPlanned = bookings.reduce((sum, booking) => sum + booking.plannedAmount, 0);
     const totalSpent = bookings.reduce((sum, booking) => sum + booking.spentAmount, 0);
 
@@ -42,6 +42,7 @@ export const getBookingById = async (req, res) => {
     const { bookingId } = req.params;
     const userId = req.user.id;
 
+    // Validate MongoDB ObjectId format
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({
         success: false,
@@ -49,6 +50,7 @@ export const getBookingById = async (req, res) => {
       });
     }
 
+    // Ensure booking belongs to the requesting user
     const booking = await Booking.findOne({
       _id: bookingId,
       user: userId,
@@ -91,7 +93,7 @@ export const createBooking = async (req, res) => {
       notes,
     } = req.body;
 
-    // Validate required fields
+    // Validate required fields for booking creation
     if (!vendorName || !eventType || !plannedAmount) {
       return res.status(400).json({
         success: false,
@@ -99,7 +101,7 @@ export const createBooking = async (req, res) => {
       });
     }
 
-    // Check if vendor exists if vendorId is provided
+    // If vendorId is provided, check if vendor exists
     let vendor = null;
     if (vendorId) {
       if (!mongoose.Types.ObjectId.isValid(vendorId)) {
@@ -118,7 +120,7 @@ export const createBooking = async (req, res) => {
       }
     }
 
-    // Create new booking
+    // Create new booking document
     const newBooking = new Booking({
       user: userId,
       vendor: vendorId || null,
@@ -157,6 +159,7 @@ export const updateBooking = async (req, res) => {
     const userId = req.user.id;
     const updateData = req.body;
 
+    // Validate booking ID format
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({
         success: false,
@@ -164,7 +167,7 @@ export const updateBooking = async (req, res) => {
       });
     }
 
-    // Check if booking exists and belongs to the user
+    // Ensure booking belongs to the user
     const booking = await Booking.findOne({
       _id: bookingId,
       user: userId,
@@ -177,7 +180,7 @@ export const updateBooking = async (req, res) => {
       });
     }
 
-    // Check if vendor exists if vendorId is provided
+    // If vendorId is being updated, validate and check existence
     if (updateData.vendorId) {
       if (!mongoose.Types.ObjectId.isValid(updateData.vendorId)) {
         return res.status(400).json({
@@ -193,12 +196,10 @@ export const updateBooking = async (req, res) => {
           message: 'Vendor not found',
         });
       }
-      
-      // Update the vendor reference
       booking.vendor = updateData.vendorId;
     }
 
-    // Update fields
+    // Update booking fields if provided
     if (updateData.vendorName !== undefined) booking.vendorName = updateData.vendorName;
     if (updateData.eventType !== undefined) booking.eventType = updateData.eventType;
     if (updateData.eventDate !== undefined) booking.eventDate = updateData.eventDate || null;
@@ -233,6 +234,7 @@ export const deleteBooking = async (req, res) => {
     const { bookingId } = req.params;
     const userId = req.user.id;
 
+    // Validate booking ID format
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({
         success: false,
@@ -240,7 +242,7 @@ export const deleteBooking = async (req, res) => {
       });
     }
 
-    // Check if booking exists and belongs to the user
+    // Ensure booking belongs to the user
     const booking = await Booking.findOne({
       _id: bookingId,
       user: userId,
@@ -276,7 +278,7 @@ export const getAvailableVendors = async (req, res) => {
     
     let query = { role: 'vendor', isVerified: true };
     
-    // Filter by category if provided
+    // Filter vendors by category if provided
     if (category) {
       query.category = category;
     }
@@ -298,10 +300,7 @@ export const getAvailableVendors = async (req, res) => {
   }
 }; 
 
-
-
-
-// Vendor  booking List 
+// Vendor booking list
 export const getVendorBookings = async (req, res) => {
   try {
     const vendorId = req.params.vendorId;
@@ -313,11 +312,12 @@ export const getVendorBookings = async (req, res) => {
       });
     }
     
+    // Find all bookings for a specific vendor
     const bookings = await Booking.find({ vendor: vendorId })
       .populate('user', 'name businessName email phone profilePhoto')
       .sort({ createdAt: -1 });
 
-
+    // Calculate totals and status counts for vendor's bookings
     const totalPlanned = bookings.reduce((sum, b) => sum + (b.plannedAmount || 0), 0);
     const totalSpent = bookings.reduce((sum, b) => sum + (b.spentAmount || 0), 0);
     
@@ -349,23 +349,21 @@ export const getVendorBookings = async (req, res) => {
   }
 };
 
-
-// // update vendor bookings
-
+// Update vendor bookings
 export const updateVendorBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    console.log("req.booking", bookingId);
     const vendorId = req.user.id;
     const updateData = req.body;
+
     if (!vendorId) {
       return res.status(401).json({
         success: false,
         message: 'Unauthorized: Vendor not found in request',
       });
     }
-    console.log("req.vendor.id", vendorId);
 
+    // Validate booking ID format
     if (!mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({
         success: false,
@@ -373,12 +371,11 @@ export const updateVendorBooking = async (req, res) => {
       });
     }
 
-    // Check if booking exists and belongs to the user
+    // Ensure booking belongs to the vendor
     const booking = await Booking.findOne({
       _id: bookingId,
       vendor: vendorId,
     });
-    console.log("booking", booking);
 
     if (!booking) {
       return res.status(404).json({
@@ -387,7 +384,7 @@ export const updateVendorBooking = async (req, res) => {
       });
     }
 
-    // Check if vendor exists if vendorId is provided
+    // If vendorId is being updated, validate and check existence
     if (updateData.vendorId) {
       if (!mongoose.Types.ObjectId.isValid(updateData.vendorId)) {
         return res.status(400).json({
@@ -403,12 +400,10 @@ export const updateVendorBooking = async (req, res) => {
           message: 'Vendor not found',
         });
       }
-      
-      // Update the vendor reference
       booking.vendor = updateData.vendorId;
     }
 
-    // Update fields
+    // Update booking fields if provided
     if (updateData.vendorName !== undefined) booking.vendorName = updateData.vendorName;
     if (updateData.eventType !== undefined) booking.eventType = updateData.eventType;
     if (updateData.eventDate !== undefined) booking.eventDate = updateData.eventDate || null;
@@ -440,7 +435,7 @@ export const updateVendorBooking = async (req, res) => {
 // Get all bookings (Admin only)
 export const getAllBookings = async (req, res) => {
   try {
-    // Check if user is admin
+    // Only admin can access all bookings
     if (req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -448,13 +443,13 @@ export const getAllBookings = async (req, res) => {
       });
     }
 
-    // Find all bookings with populated user and vendor details
+    // Find all bookings with user and vendor details
     const bookings = await Booking.find()
       .populate('user', 'name email phone')
       .populate('vendor', 'businessName email phone')
       .sort({ createdAt: -1 });
 
-    // Calculate statistics
+    // Calculate statistics for all bookings
     const totalPlanned = bookings.reduce((sum, booking) => sum + (booking.plannedAmount || 0), 0);
     const totalSpent = bookings.reduce((sum, booking) => sum + (booking.spentAmount || 0), 0);
     

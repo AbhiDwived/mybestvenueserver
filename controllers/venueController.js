@@ -7,11 +7,13 @@ export const createVenue = async (req, res) => {
     const { name, location, capacity, priceRange, description, images, category } = req.body;
     const vendorId = req.user.id; // From VerifyVendor middleware
 
+    //  Ensure the category exists before creating the venue
     const categoryExists = await Category.findById(category);
     if (!categoryExists) {
       return res.status(404).json({ message: 'Category not found' });
     }
 
+    //  Save venue with vendorId and mark as pending approval
     const newVenue = new Venue({
       name,
       location,
@@ -40,6 +42,7 @@ export const getApprovedVenues = async (req, res) => {
     const { category, city, minPrice, maxPrice } = req.query;
     const filter = { isApproved: true };
 
+    //  Apply filters for category, city, and price range if provided
     if (category) filter.category = category;
     if (city) filter['location.city'] = new RegExp(city, 'i');
     if (minPrice || maxPrice) {
@@ -62,6 +65,7 @@ export const getApprovedVenues = async (req, res) => {
 // Get single venue by ID (public)
 export const getVenueById = async (req, res) => {
   try {
+    //  Populate category and vendor info for venue details
     const venue = await Venue.findById(req.params.venueId)
       .populate('category', 'name')
       .populate('vendor', 'businessName email');
@@ -79,6 +83,7 @@ export const getVenueById = async (req, res) => {
 // Admin approves a venue
 export const approveVenue = async (req, res) => {
   try {
+    //  Set isApproved to true for the given venue
     const venue = await Venue.findByIdAndUpdate(
       req.params.venueId,
       { isApproved: true },
@@ -104,12 +109,13 @@ export const updateVenue = async (req, res) => {
     const venue = await Venue.findById(venueId);
     if (!venue) return res.status(404).json({ message: 'Venue not found' });
 
+    //  Only the vendor who owns the venue can update it
     if (venue.vendor.toString() !== vendorId) {
       return res.status(403).json({ message: 'Unauthorized' });
     }
 
     Object.assign(venue, req.body);
-    venue.isApproved = false; // Re-approval needed
+    venue.isApproved = false; //  Re-approval needed after update
 
     const updatedVenue = await venue.save();
 
@@ -131,6 +137,7 @@ export const deleteVenue = async (req, res) => {
     const venue = await Venue.findById(venueId);
     if (!venue) return res.status(404).json({ message: 'Venue not found' });
 
+    //  Only the vendor who owns the venue can delete it
     if (venue.vendor.toString() !== vendorId) {
       return res.status(403).json({ message: 'Unauthorized' });
     }
@@ -159,6 +166,7 @@ export const getFilteredVenues = async (req, res) => {
 
     const filter = { isApproved: true };
 
+    //  Apply advanced filters for category, city, and price range
     if (category) filter.category = category;
     if (city) filter.location = { $regex: new RegExp(city, 'i') };
     if (minPrice || maxPrice) {
@@ -167,6 +175,7 @@ export const getFilteredVenues = async (req, res) => {
       if (maxPrice) filter.priceRange.$lte = Number(maxPrice);
     }
 
+    //  Pagination and sorting logic
     const venues = await Venue.find(filter)
       .populate('category', 'name')
       .populate('vendor', 'businessName')

@@ -12,6 +12,7 @@ const STORAGE_TYPE = process.env.STORAGE_TYPE || 'imagekit';
 // S3 upload middleware
 export const uploadToS3 = async (req, res, next) => {
     try {
+        //  Log file details for debugging and skip if no file
         console.log('📤 S3 Upload Middleware - File check:', {
             hasFile: !!req.file,
             fileName: req.file?.originalname,
@@ -24,12 +25,12 @@ export const uploadToS3 = async (req, res, next) => {
             return next();
         }
 
-        // Generate unique filename
+        //  Generate unique filename using timestamp and original extension
         const timestamp = Date.now();
         const fileExtension = path.extname(req.file.originalname);
         const fileName = `${timestamp}-${req.file.originalname.replace(fileExtension, '')}${fileExtension}`;
         
-        // Determine folder path
+        //  Use provided folder path or default to 'uploads'
         const folderPath = req.imagePath || 'uploads';
         const key = `${folderPath}/${fileName}`;
         
@@ -40,7 +41,7 @@ export const uploadToS3 = async (req, res, next) => {
             fileName: fileName
         });
 
-        // Upload to S3
+        //  Prepare S3 upload parameters
         const params = {
             Bucket: S3_BUCKET_NAME,
             Key: key,
@@ -54,12 +55,11 @@ export const uploadToS3 = async (req, res, next) => {
         await s3Client.send(command);
         console.log('✅ S3 upload successful');
 
-        // Generate S3 URL
+        //  Generate S3 URL and attach to request for downstream use
         const s3Url = `https://${S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
         
         console.log('🔗 Generated S3 URL:', s3Url);
         
-        // Add S3 URL to request object - set both for backward compatibility
         req.imageUrl = s3Url;
         req.fileUrl = s3Url;
         req.fileKey = key; // Store the key for potential deletion later
@@ -88,20 +88,20 @@ export const uploadToImageKit = async (req, res, next) => {
             return next();
         }
 
-        // Convert buffer to base64
+        //  Convert file buffer to base64 for ImageKit upload
         const base64Image = req.file.buffer.toString('base64');
 
-        // Upload to ImageKit
+        //  Upload to ImageKit with folder path or default
         const response = await imagekit.upload({
             file: base64Image,
             fileName: `${Date.now()}-${req.file.originalname}`,
-            folder: req.imagePath || 'uploads' // Use the provided folder path or default
+            folder: req.imagePath || 'uploads'
         });
 
-        // Add ImageKit URL to request object - set both for backward compatibility
+        //  Attach ImageKit URL and fileId to request for downstream use
         req.imageUrl = response.url;
         req.fileUrl = response.url;
-        req.fileId = response.fileId; // Store the fileId for potential deletion later
+        req.fileId = response.fileId;
         
         next();
     } catch (error) {
@@ -117,6 +117,7 @@ export const uploadToImageKit = async (req, res, next) => {
 // Unified upload middleware that chooses between S3 and ImageKit
 export const uploadToStorage = async (req, res, next) => {
     try {
+        //  Log storage type and file presence for debugging
         console.log('🗄️ Storage Upload Middleware:', {
             storageType: STORAGE_TYPE,
             hasFile: !!req.file,
@@ -128,7 +129,7 @@ export const uploadToStorage = async (req, res, next) => {
             return next();
         }
         
-        // Use S3 or ImageKit based on configuration
+        //  Use S3 or ImageKit based on configuration
         if (STORAGE_TYPE === 's3') {
             console.log('📤 Using S3 storage');
             await uploadToS3(req, res, () => {});

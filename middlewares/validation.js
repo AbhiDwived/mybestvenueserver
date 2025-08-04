@@ -2,7 +2,9 @@
 import Joi from 'joi';
 import mongoose from 'mongoose';
 
+// Custom Joi validator for MongoDB ObjectId
 const objectId = Joi.string().custom((value, helpers) => {
+  //  Validate that the string is a valid MongoDB ObjectId
   if (!mongoose.Types.ObjectId.isValid(value)) {
     return helpers.error('any.invalid');
   }
@@ -32,7 +34,7 @@ export const userValidation = {
     password: Joi.string().required()
       .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/)
       .messages({
-      'string.empty': 'Password is required',
+        'string.empty': 'Password is required',
         'string.pattern.base': 'Password must:\n- Be 8-20 characters long\n- Include at least 1 uppercase letter\n- Include at least 1 lowercase letter\n- Include at least 1 number\n- Include at least 1 special character (@$!%*?&)'
       }),
     confirmPassword: Joi.string().valid(Joi.ref('password')).messages({
@@ -56,7 +58,7 @@ export const userValidation = {
       .messages({
         'string.empty': 'Password is required',
         'string.pattern.base': 'Password must:\n- Be 8-20 characters long\n- Include at least 1 uppercase letter\n- Include at least 1 lowercase letter\n- Include at least 1 number\n- Include at least 1 special character (@$!%*?&)'
-    })
+      })
   }),
   updateProfile: Joi.object({
     name: Joi.string().required().min(3).max(50),
@@ -99,7 +101,7 @@ export const vendorValidation = {
     password: Joi.string().required()
       .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,20}$/)
       .messages({
-      'string.empty': 'Password is required',
+        'string.empty': 'Password is required',
         'string.pattern.base': 'Password must:\n- Be 8-20 characters long\n- Include at least 1 uppercase letter\n- Include at least 1 lowercase letter\n- Include at least 1 number\n- Include at least 1 special character (@$!%*?&)'
       }),
     address: Joi.object({
@@ -308,9 +310,11 @@ export const reviewValidation = {
 // Validation middleware function
 export const validate = (schema) => {
   return (req, res, next) => {
+    //  Validate request body against the provided Joi schema
     const { error } = schema.validate(req.body, { abortEarly: false });
     
     if (error) {
+      //  Format Joi validation errors for client response
       const errors = error.details.map(detail => ({
         field: detail.path[0],
         message: detail.message
@@ -324,4 +328,4 @@ export const validate = (schema) => {
     
     next();
   };
-}; 
+};

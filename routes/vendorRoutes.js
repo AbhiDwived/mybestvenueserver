@@ -74,8 +74,8 @@ const videoUpload = multer({
   }
 });
 
-// Register new vendor (with OTP)
-router.post('/register', 
+// Register a new vendor
+router.post('/register',
   validate(vendorValidation.register),
   upload.single('profilePicture'),
   (req, res, next) => {
@@ -87,16 +87,16 @@ router.post('/register',
   registerVendor
 );
 
-// Verify vendor OTP
+// Verify vendor OTP for registration
 router.post('/vendorverify-otp', verifyVendorOtp);
 
-// Resend OTP
+// Resend OTP for vendor registration
 router.post('/resendvendor-otp', resendVendorOtp);
 
-// Login vendor
+// Vendor login
 router.post('/login', validate(userValidation.login), loginVendor);
 
-// Forgot password
+// Request password reset for vendor
 router.post('/forgot-password', forgotPassword);
 
 // Verify OTP for password reset
@@ -105,12 +105,12 @@ router.post('/forgot_password_otp', verifyResetOtp);
 // Resend password reset OTP
 router.post('/resend-forgot-password-otp', resendPasswordResetOtp);
 
-// Reset password
+// Reset vendor password
 router.post('/reset_password', resetPassword);
 
-// Update vendor profile (vendor or admin)
-router.put('/update/:id', 
-  VerifyAdminOrVendor, 
+// Update vendor profile
+router.put('/update/:id',
+  VerifyAdminOrVendor,
   upload.single('profilePicture'),
   (req, res, next) => {
     req.imagePath = 'vendor-profiles';
@@ -120,47 +120,58 @@ router.put('/update/:id',
   updateVendorProfile
 );
 
-// Delete vendor (only admin can delete vendors for now)
+// Delete a vendor account (Admin only)
 router.delete('/delete/:vendorId', VerifyAdmin, deleteVendor);
 
-// Get vendor by ID (Overview)
+// Get vendor details by ID
 router.get('/vendorbyId/:vendorId', getVendorById);
 
-// Handle user inquiry replies
-
+// Add a vendor's reply to an inquiry
 router.post('/inquiry-reply/:vendorId', VerifyAdminOrVendor, addVendorReplyToInquiry);
 
-// Get vendor's replied inquiries
+// Get a list of inquiries a vendor has replied to
 router.get('/replied-inquiries/:vendorId', VerifyAdminOrVendor, getVendorRepliedInquiryList);
 
-
-// Packages routes
+// Add a new service package for a vendor
 router.post('/addservicesPackage', VerifyAdminOrVendor,addServicesPackage);
+
+// Get all service packages for all vendors (Admin)
 router.get('/allservicesPackageList', VerifyAdminOrVendor,getAllServicesPackages);
+
+// Get all service packages for a specific vendor
 router.get('/vendorservicesPackageList/:vendorId', VerifyAdminOrVendor, getVendorServicesPackages);
+
+// Update a service package
 router.put('/updateservicesPackage/:packageId', VerifyAdminOrVendor,updateServicePackages);
+
+// Delete a service package
 router.delete('/updateservicesPackage/:packageId', VerifyAdminOrVendor,deleteServicePackages);
 
-// Faqs routes
+// Add a FAQ for a vendor
 router.post("/addfaq",VerifyAdminOrVendor,addFaq);
+
+// Get all FAQs for a specific vendor
 router.get("/getfaqsbyVendor/:vendorId", VerifyAdminOrVendor, getVendorsFaqs);
+
+// Delete a FAQ for a vendor
 router.delete("/deletefaq/:vendorId/:faqId",VerifyAdminOrVendor,deleteFaq);
 
-// Update vendor pricing range
+// Update the pricing range for a vendor
 router.put('/pricing-range/:vendorId', VerifyAdminOrVendor, updateVendorPricingRange);
 
-// get UserListBy userId 
+// Get user list by user ID (for vendors)
 router.get("/getUserListByUserId/:userId",VerifyAdminOrVendor,getUserListById);
 
-// create userBooking By vendor
+// Create a booking for a user (by vendor)
 router.post("/createuserBookingbyVendor",VerifyAdminOrVendor,createuserBookingByVendor);
 
+// Refresh authentication token for vendor
 router.post("/refresh-token", refreshToken);
 
 
 
 // Portfolio management routes
-// Upload portfolio image (vendor or admin)
+// Upload a portfolio image
 router.post('/portfolio/image',
   VerifyAdminOrVendor,
   upload.single('image'),
@@ -172,19 +183,19 @@ router.post('/portfolio/image',
   uploadPortfolioImage
 );
 
-// Upload portfolio video (vendor or admin)
+// Upload a portfolio video
 router.post('/portfolio/video', VerifyAdminOrVendor, videoUpload.single('video'), uploadPortfolioVideo);
 
-// Get vendor portfolio images (public - no auth required)
+// Get all portfolio images for a vendor
 router.get('/portfolio/images/:vendorId', getPortfolioImages);
 
-// Get vendor portfolio videos (public - no auth required)
+// Get all portfolio videos for a vendor
 router.get('/portfolio/videos/:vendorId', getPortfolioVideos);
 
-// Delete portfolio image (vendor or admin)
+// Delete a portfolio image
 router.delete('/portfolio/image/:imageId', VerifyAdminOrVendor, deletePortfolioImage);
 
-// Delete portfolio video (vendor or admin)
+// Delete a portfolio video
 router.delete('/portfolio/video/:videoId', VerifyAdminOrVendor, deletePortfolioVideo);
 
 // Test route for portfolio
@@ -233,16 +244,16 @@ router.get('/test-vendor/:vendorId', async (req, res) => {
   }
 });
 
-// get latest vendorType record (public endpoint)
+// Get the latest vendor type data
 router.get('/getlatestvendorType', getlatestVendorTypeData);
 
-// delete pricing list
+// Delete a pricing list item for a vendor
 router.delete("/:vendorId/pricing/:pricingId", VerifyAdminOrVendor, deletePricingList);
 
-// get Similar Vendors List 
+// Get a list of similar vendors
 router.get('/getSimilarVendors/:vendorId', VerifyAdminOrVendor, getSimilarVendors);
 
-// vendor city wise search 
+// Search for vendors by city
 router.get("/Vendor/:city", VerifyAdminOrVendor, VendorsByCity);
 
 export default router;

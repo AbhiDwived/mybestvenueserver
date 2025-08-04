@@ -18,22 +18,12 @@ import bcrypt from 'bcryptjs';
 
 dotenv.config();
 
-/**
- * Initiate forgot password process
- * 
- * Generates and sends OTP to user's email for password reset.
- * Works for both regular users and vendors.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.body - Request body
- * @param {string} req.body.email - User's email address
- * @param {Object} res - Express response object
- * @returns {Object} JSON response confirming OTP sent
- */
+// Forgot password: Send OTP to user or vendor email
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
   try {
+    // Try to find user by email (first in User, then in Vendor)
     let user = await User.findOne({ email });
     let userType = 'user';
 
@@ -46,13 +36,16 @@ export const forgotPassword = async (req, res) => {
       return res.status(404).json({ message: 'No user or vendor found with this email' });
     }
 
+    // Generate 6-digit OTP and set expiry (10 minutes)
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const otpExpires = Date.now() + 10 * 60 * 1000;
 
+    // Save OTP and expiry to user/vendor document
     user.resetPasswordOtp = otp;
     user.resetPasswordOtpExpires = otpExpires;
     await user.save();
 
+    // Send OTP email using nodemailer
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -70,6 +63,7 @@ export const forgotPassword = async (req, res) => {
 
     transporter.sendMail(mailOptions, (error) => {
       if (error) {
+        // If email fails, do not reveal details to user for security
         console.error('Error sending email:', error);
         return res.status(500).json({ message: 'Error sending OTP email' });
       }
@@ -84,23 +78,12 @@ export const forgotPassword = async (req, res) => {
   }
 };
 
-/**
- * Verify password reset OTP
- * 
- * Verifies the OTP sent to user's email for password reset.
- * Clears the OTP fields upon successful verification.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.body - Request body
- * @param {string} req.body.email - User's email address
- * @param {string} req.body.otp - 6-digit OTP code
- * @param {Object} res - Express response object
- * @returns {Object} JSON response confirming OTP verification
- */
+// Verify password reset OTP for user or vendor
 export const verifyResetOtp = async (req, res) => {
   const { email, otp } = req.body;
 
   try {
+    // Find user or vendor by email, include OTP fields
     let user = await User.findOne({ email }).select('+resetPasswordOtp +resetPasswordOtpExpires');
     if (!user) {
       user = await Vendor.findOne({ email }).select('+resetPasswordOtp +resetPasswordOtpExpires');
@@ -110,6 +93,7 @@ export const verifyResetOtp = async (req, res) => {
       return res.status(404).json({ message: 'No user or vendor found with this email' });
     }
 
+    // Check both OTP match and expiry
     const isMatch = otp.toString().trim() === user.resetPasswordOtp?.toString();
     const isExpired = user.resetPasswordOtpExpires < Date.now();
 
@@ -117,6 +101,7 @@ export const verifyResetOtp = async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
 
+    // Clear OTP fields after successful verification
     user.resetPasswordOtp = undefined;
     user.resetPasswordOtpExpires = undefined;
     await user.save();
@@ -130,23 +115,12 @@ export const verifyResetOtp = async (req, res) => {
   }
 };
 
-/**
- * Reset user password
- * 
- * Updates user's password with the new password after OTP verification.
- * Password is hashed before storing in the database.
- * 
- * @param {Object} req - Express request object
- * @param {Object} req.body - Request body
- * @param {string} req.body.email - User's email address
- * @param {string} req.body.newPassword - New password to set
- * @param {Object} res - Express response object
- * @returns {Object} JSON response confirming password reset
- */
+// Reset password after OTP verification
 export const resetPassword = async (req, res) => {
   const { email, newPassword } = req.body;
 
   try {
+    // Find user or vendor by email
     let user = await User.findOne({ email });
     if (!user) {
       user = await Vendor.findOne({ email });
@@ -156,6 +130,7 @@ export const resetPassword = async (req, res) => {
       return res.status(404).json({ message: 'No user or vendor found with this email' });
     }
 
+    // Always hash new password before saving
     const hashedPassword = await bcrypt.hash(newPassword, 12);
     user.password = hashedPassword;
     await user.save();

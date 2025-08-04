@@ -11,14 +11,16 @@ import { VerifyVendor, VerifyAdmin } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Public
+// Get all approved venues
 router.get('/', getApprovedVenues);
+
+// Get a specific venue by its ID
 router.get('/:venueId', getVenueById);
 
-// Vendor - Create a new venue (pending approval)
+// Create a new venue (requires vendor authentication)
 router.post('/', VerifyVendor, createVenue);
 
-// Admin - Approve venue
+// Approve a venue (requires admin authentication)
 router.put('/approve/:venueId', VerifyAdmin, approveVenue);
 
 export default router;

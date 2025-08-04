@@ -1,19 +1,22 @@
 // Import the logger
 import { logger } from '../utils/logger.js';
 
-// Error tracking
+// Error tracking variables
 let errorCount = 0;
 let errorResetInterval;
 
+// Track error frequency for alerting
 const trackError = (error, req) => {
   errorCount++;
-  
+
+  //  Start/reset interval to clear error count every minute
   if (!errorResetInterval) {
     errorResetInterval = setInterval(() => {
       errorCount = 0;
     }, 60000);
   }
-  
+
+  //  Log a warning if error rate is unusually high
   if (errorCount > 10) {
     logger.error(`HIGH ERROR RATE: ${errorCount} errors in last minute`);
   }
@@ -21,10 +24,10 @@ const trackError = (error, req) => {
 
 // Custom error handler middleware
 const errorHandler = (err, req, res, next) => {
-  // Track error
+  //  Track error for alerting and analytics
   trackError(err, req);
-  
-  // Log error details with logger instead of console
+
+  //  Log error details with context for debugging
   logger.error('Error occurred:', {
     timestamp: new Date().toISOString(),
     path: req.path,
@@ -36,7 +39,7 @@ const errorHandler = (err, req, res, next) => {
     query: req.query
   });
 
-  // Handle specific error types
+  //  Handle Mongoose validation errors
   if (err.name === 'ValidationError') {
     return res.status(400).json({
       status: 'error',
@@ -45,6 +48,7 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
+  //  Handle MongoDB duplicate key errors
   if (err.name === 'MongoServerError' && err.code === 11000) {
     return res.status(409).json({
       status: 'error',
@@ -53,6 +57,7 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
+  //  Handle JWT token expiration
   if (err.name === 'TokenExpiredError') {
     return res.status(401).json({
       status: 'error',
@@ -61,6 +66,7 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
+  //  Handle invalid JWT tokens
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
       status: 'error',
@@ -69,7 +75,7 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Default error response
+  //  Default error response for unhandled errors
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
     status: 'error',
@@ -79,4 +85,3 @@ const errorHandler = (err, req, res, next) => {
 };
 
 export default errorHandler;
-  

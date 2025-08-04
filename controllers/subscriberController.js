@@ -7,13 +7,13 @@ const subscriberController = {
     try {
       const { email } = req.body;
 
-      // Check if email already exists
+      //  Check if email already exists and is active
       const existingSubscriber = await Subscriber.findOne({ email });
       if (existingSubscriber) {
         if (existingSubscriber.isActive) {
           return res.status(400).json({ message: 'Email already subscribed' });
         } else {
-          // Reactivate subscription
+          //  Reactivate subscription if previously unsubscribed
           existingSubscriber.isActive = true;
           await existingSubscriber.save();
           return res.status(200).json({ message: 'Subscription reactivated successfully' });
@@ -24,7 +24,7 @@ const subscriberController = {
       const newSubscriber = new Subscriber({ email });
       await newSubscriber.save();
 
-      // Send welcome email
+      //  Send welcome email (non-blocking, errors logged but do not stop flow)
       try {
         await sendEmail({
           email,
@@ -56,6 +56,7 @@ If you wish to unsubscribe in the future, please click here: [Unsubscribe Link]`
     try {
       const { email } = req.body;
 
+      //  Only unsubscribe if subscriber exists and is active
       const subscriber = await Subscriber.findOne({ email });
       if (!subscriber || !subscriber.isActive) {
         return res.status(404).json({ message: 'Subscription not found' });
@@ -77,7 +78,8 @@ If you wish to unsubscribe in the future, please click here: [Unsubscribe Link]`
   // Get all subscribers (admin only)
   getAllSubscribers: async (req, res) => {
     try {
-      const subscribers = await Subscriber.find({}) // Remove isActive filter to get all subscribers
+      //  Fetch all subscribers, including inactive ones, for admin
+      const subscribers = await Subscriber.find({})
         .select('email createdAt isActive')
         .sort('-createdAt');
 
@@ -100,16 +102,16 @@ If you wish to unsubscribe in the future, please click here: [Unsubscribe Link]`
       const { id } = req.params;
       const { isActive } = req.body;
 
+      //  Find subscriber by ID and update only the isActive status
       const subscriber = await Subscriber.findById(id);
       if (!subscriber) {
         return res.status(404).json({ message: 'Subscriber not found' });
       }
 
-      // Only update the isActive status
       subscriber.isActive = isActive;
       await subscriber.save();
 
-      // Send email notification for status change
+      //  Send email notification for status change (non-blocking)
       try {
         if (!isActive) {
           await sendEmail({
@@ -147,12 +149,13 @@ If you wish to unsubscribe in the future, please click here: [Unsubscribe Link]`
     try {
       const { id } = req.params;
 
+      //  Find subscriber by ID before deletion
       const subscriber = await Subscriber.findById(id);
       if (!subscriber) {
         return res.status(404).json({ message: 'Subscriber not found' });
       }
 
-      // Send notification email before deletion
+      //  Send notification email before deletion (non-blocking)
       try {
         await sendEmail({
           email: subscriber.email,
@@ -179,4 +182,4 @@ If you wish to unsubscribe in the future, please click here: [Unsubscribe Link]`
   }
 };
 
-export default subscriberController; 
+export default subscriberController;

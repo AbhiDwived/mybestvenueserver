@@ -4,24 +4,24 @@ import {
   createCategory,
   updateCategory,
   deleteCategory,
-  getCategories, // ✅ Use the correct exported function
+  getCategories,
 } from '../controllers/categoryController.js';
-
-
 import { VerifyAdmin } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// ✅ Public - Vendors & Users can use this to filter/list by category
+// Public route
+// Deep comment: Vendors & users can fetch all categories for filtering or listing
 router.get('/categories', getCategories);
 
-// ✅ Admin-only - Create new category
+// Admin-only routes
+// Deep comment: Only admins can create a new category
 router.post('/categories', VerifyAdmin, createCategory);
 
-// ✅ Admin-only - Update category by ID
+// Deep comment: Only admins can update a category by its ID
 router.put('/categories/:categoryId', VerifyAdmin, updateCategory);
 
-// ✅ Admin-only - Delete category by ID
+// Deep comment: Only admins can delete a category by its ID
 router.delete('/categories/:categoryId', VerifyAdmin, deleteCategory);
 
 export default router;

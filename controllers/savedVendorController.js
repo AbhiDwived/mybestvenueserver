@@ -18,6 +18,7 @@ export const getSavedVendors = async (req, res) => {
     // Format the vendors for the response
     const formattedVendors = savedVendors.map(saved => {
       const vendor = saved.vendor;
+      // Only include vendors that still exist (filter out deleted vendors)
       return vendor ? {
         id: vendor._id.toString(),
         name: vendor.businessName,
@@ -62,6 +63,7 @@ export const saveVendor = async (req, res) => {
     const userId = req.user.id;
     const { vendorId } = req.params;
 
+    // Validate vendorId format before proceeding
     if (!mongoose.Types.ObjectId.isValid(vendorId)) {
       return res.status(400).json({
         success: false,
@@ -78,7 +80,7 @@ export const saveVendor = async (req, res) => {
       });
     }
 
-    // Check if already saved
+    // Prevent duplicate saves for the same vendor by the same user
     const existingSave = await SavedVendor.findOne({
       user: userId,
       vendor: vendorId,
@@ -113,7 +115,7 @@ export const saveVendor = async (req, res) => {
     });
   } catch (error) {
     console.error('Error saving vendor:', error);
-    // Handle duplicate key error specifically
+    // Handle duplicate key error specifically (race condition)
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
@@ -134,6 +136,7 @@ export const unsaveVendor = async (req, res) => {
     const userId = req.user.id;
     const { vendorId } = req.params;
 
+    // Validate vendorId format before proceeding
     if (!mongoose.Types.ObjectId.isValid(vendorId)) {
       return res.status(400).json({
         success: false,
@@ -174,6 +177,7 @@ export const checkVendorSaved = async (req, res) => {
     const userId = req.user.id;
     const { vendorId } = req.params;
 
+    // Validate vendorId format before proceeding
     if (!mongoose.Types.ObjectId.isValid(vendorId)) {
       return res.status(400).json({
         success: false,
@@ -199,4 +203,4 @@ export const checkVendorSaved = async (req, res) => {
       error: error.message,
     });
   }
-}; 
+};

@@ -12,28 +12,29 @@ import { VerifyAdminOrVendor } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// All routes require authentication and vendor role
+// All routes require authentication and vendor/admin role
+// Deep comment: Only vendors or admins can access event management endpoints
 router.use(VerifyAdminOrVendor);
 
-// Create a new event
+// Deep comment: Create a new event for a vendor (vendorId in params)
 router.post('/:vendorId', createEvent);
 
-// Get all events for a vendor
+// Deep comment: Get all events for a specific vendor
 router.get('/:vendorId', getVendorEvents);
 
-// Get upcoming events
+// Deep comment: Get upcoming events for a vendor (sorted by date)
 router.get('/:vendorId/upcoming', getUpcomingEvents);
 
-// Get events by date range
+// Deep comment: Get events for a vendor within a specific date range (query params: start, end)
 router.get('/:vendorId/range', getEventsByDateRange);
 
-// Get a single event
+// Deep comment: Get a single event by its ID for a vendor
 router.get('/:vendorId/:eventId', getEventById);
 
-// Update an event
+// Deep comment: Update an event by its ID (vendor or admin only)
 router.put('/:vendorId/:eventId', updateEvent);
 
-// Delete an event
+// Deep comment: Delete an event by its ID (vendor or admin only)
 router.delete('/:vendorId/:eventId', deleteEvent);
 
 export default router;

@@ -10,6 +10,7 @@ export const createEvent = async (req, res) => {
       vendorId
     };
 
+    // Event is linked to vendorId from params, not just body
     const event = new Event(eventData);
     await event.save();
 
@@ -80,6 +81,7 @@ export const getEventById = async (req, res) => {
     const { eventId } = req.params;
     const { vendorId } = req.params;
 
+    // Ensure event belongs to vendor and is active
     const event = await Event.findOne({ _id: eventId, vendorId, isActive: true });
 
     if (!event) {
@@ -109,6 +111,7 @@ export const updateEvent = async (req, res) => {
     const { eventId, vendorId } = req.params;
     const updateData = req.body;
 
+    // Only update if event is active and belongs to vendor
     const event = await Event.findOneAndUpdate(
       { _id: eventId, vendorId, isActive: true },
       updateData,
@@ -144,6 +147,7 @@ export const deleteEvent = async (req, res) => {
   try {
     const { eventId, vendorId } = req.params;
 
+    // Soft delete by setting isActive to false
     const event = await Event.findOneAndUpdate(
       { _id: eventId, vendorId, isActive: true },
       { isActive: false },
@@ -179,6 +183,7 @@ export const getEventsByDateRange = async (req, res) => {
     const { vendorId } = req.params;
     const { startDate, endDate } = req.query;
 
+    // Both start and end dates are required for range query
     if (!startDate || !endDate) {
       return res.status(400).json({
         success: false,
@@ -216,6 +221,7 @@ export const getUpcomingEvents = async (req, res) => {
     const { vendorId } = req.params;
     const { limit = 10 } = req.query;
 
+    // Only fetch events with eventDate in the future
     const events = await Event.find({
       vendorId,
       isActive: true,
@@ -237,4 +243,4 @@ export const getUpcomingEvents = async (req, res) => {
       error: error.message
     });
   }
-}; 
+};

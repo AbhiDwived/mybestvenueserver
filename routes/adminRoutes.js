@@ -20,45 +20,46 @@ import {
   deleteRideByAdmin,
   getRidesByVendor
 } from '../controllers/adminController.js';
-
 import { createVendorByAdmin } from '../controllers/vendorController.js';
-
 import { VerifyAdmin } from '../middlewares/authMiddleware.js';
 import upload from '../middlewares/upload.js';
 
 const router = express.Router();
 
-router.post('/register', registerAdmin);
-router.post('/login', loginAdmin);
+// Admin registration and login
+router.post('/register', registerAdmin); // Deep comment: Register a new admin (OTP sent to email)
+router.post('/login', loginAdmin); // Deep comment: Admin login, returns JWT if successful
 
-// Verify admin OTP
-router.post('/admin_verify_otp', verifyAdminOtp);
+// OTP verification for admin
+router.post('/admin_verify_otp', verifyAdminOtp); // Deep comment: Verify OTP for admin registration
+router.post('/resend_admin_otp', resendAdminOtp); // Deep comment: Resend OTP for admin registration
 
-// Resend admin OTP
-router.post('/resend_admin_otp', resendAdminOtp);
+// Admin profile update (protected)
+router.put('/update/:adminId', VerifyAdmin, updateAdminProfile); // Deep comment: Update admin profile (only self, protected)
 
-router.put('/update/:adminId', VerifyAdmin, updateAdminProfile);
+// Vendor management routes (admin only)
+router.get('/all_vendors', getAllVendors); // Deep comment: Get all vendors (public or admin dashboard)
+router.get('/latest_vendors_by_type', getLatestVendorsByType); // Deep comment: Get latest vendors grouped by type
+router.get('/pending_vendor', VerifyAdmin, getPendingVendors); // Deep comment: Get all vendors pending approval (admin only)
+router.put('/approve/:vendorId', VerifyAdmin, approveVendor); // Deep comment: Approve a vendor by ID (admin only)
+router.delete('/delete-vendor/:vendorId', VerifyAdmin, deleteVendorByAdmin); // Deep comment: Delete a vendor by ID (admin only)
+router.post('/create-vendor', VerifyAdmin, upload.single('profilePicture'), createVendorByAdmin); // Deep comment: Admin creates a new vendor with profile picture
 
-router.get('/all_vendors', getAllVendors);
-router.get('/latest_vendors_by_type', getLatestVendorsByType);
-router.get('/pending_vendor', VerifyAdmin, getPendingVendors);
-router.put('/approve/:vendorId', VerifyAdmin, approveVendor);
-router.delete('/delete-vendor/:vendorId', VerifyAdmin, deleteVendorByAdmin);
-router.post('/create-vendor', VerifyAdmin, upload.single('profilePicture'), createVendorByAdmin);
+// User management routes (admin only)
+router.get('/all_users', VerifyAdmin, getAllUsers); // Deep comment: Get all users (admin only)
+router.delete('/delete-user/:userId', VerifyAdmin, deleteUserByAdmin); // Deep comment: Delete a user by ID (admin only)
 
-router.get('/all_users', VerifyAdmin, getAllUsers);
-router.delete('/delete-user/:userId', VerifyAdmin, deleteUserByAdmin);
+// Vendor statistics
+router.get('/vendor-counts/:location', getVendorCountsByLocation); // Deep comment: Get vendor counts by location (for analytics)
 
-// New route for vendor counts by location
-router.get('/vendor-counts/:location', getVendorCountsByLocation);
+// Token refresh
+router.post("/refresh-token", refreshToken); // Deep comment: Refresh admin JWT token
 
-router.post("/refresh-token", refreshToken);
-
-// Ride management routes
-router.get('/rides', VerifyAdmin, getAllRides);
-router.post('/rides', VerifyAdmin, createRideByAdmin);
-router.put('/rides/:rideId', VerifyAdmin, updateRideByAdmin);
-router.delete('/rides/:rideId', VerifyAdmin, deleteRideByAdmin);
-router.get('/rides/vendor/:vendorId', VerifyAdmin, getRidesByVendor);
+// Ride management routes (admin only)
+router.get('/rides', VerifyAdmin, getAllRides); // Deep comment: Get all rides (admin only)
+router.post('/rides', VerifyAdmin, createRideByAdmin); // Deep comment: Create a new ride (admin only)
+router.put('/rides/:rideId', VerifyAdmin, updateRideByAdmin); // Deep comment: Update ride details by rideId (admin only)
+router.delete('/rides/:rideId', VerifyAdmin, deleteRideByAdmin); // Deep comment: Delete a ride by rideId (admin only)
+router.get('/rides/vendor/:vendorId', VerifyAdmin, getRidesByVendor); // Deep comment: Get all rides for a specific vendor (admin only)
 
 export default router;

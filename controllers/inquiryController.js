@@ -26,7 +26,7 @@ export const createInquiry = async (req, res) => {
 
     await inquiry.save();
 
-    // Log the activity
+    // Log the inquiry activity for auditing
     await logInquirySent(user, vendor, inquiry, req);
 
     res.status(201).json({
@@ -49,7 +49,7 @@ export const createAnonymousInquiry = async (req, res) => {
   try {
     const { vendorId, name, email, phone, eventDate, message } = req.body;
 
-    // Validate required fields
+    // Validate all required fields for anonymous inquiry
     if (!vendorId || !name || !email || !phone || !message) {
       return res.status(400).json({
         success: false,
@@ -95,13 +95,12 @@ export const createAnonymousInquiry = async (req, res) => {
 export const getVendorInquiries = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    console.log('Fetching inquiries for vendorId:', vendorId);
-    // Get logged-in user inquiries
-    const userInquiries = await Inquiry.find({ vendorId: vendorId })
-      .populate({ path: 'userId', select: 'name email phone' })
+
+    // Fetch both user and anonymous inquiries for the vendor
+    const userInquiries = await Inquiry.find({ vendor: vendorId })
+      .populate({ path: 'user', select: 'name email phone' })
       .sort({ createdAt: -1 });
-    console.log('Fetched userInquiries:', userInquiries);
-    // Get anonymous inquiries
+
     const anonymousInquiries = await AnonymousInquiry.find({ vendorId })
       .sort({ createdAt: -1 });
 
@@ -129,6 +128,7 @@ export const replyToInquiry = async (req, res) => {
     const vendorId = req.user.id;
 
     if (inquiryType === 'anonymous') {
+      // Only allow reply if inquiry belongs to vendor
       const inquiry = await AnonymousInquiry.findById(inquiryId);
       if (!inquiry || inquiry.vendorId.toString() !== vendorId) {
         return res.status(404).json({
@@ -145,15 +145,17 @@ export const replyToInquiry = async (req, res) => {
       inquiry.status = 'Replied';
       await inquiry.save();
     } else {
+      // Only allow reply if inquiry belongs to vendor
       const inquiry = await Inquiry.findById(inquiryId);
-      if (!inquiry || inquiry.vendorId.toString() !== vendorId) {
+      if (!inquiry || inquiry.vendor.toString() !== vendorId) {
         return res.status(404).json({
           success: false,
           message: 'Inquiry not found or unauthorized'
         });
       }
 
-      // Add vendor reply to the userMessage array
+      // Add vendor reply to the userMessage array for conversation history
+      inquiry.userMessage = inquiry.userMessage || [];
       inquiry.userMessage.push({
         message: '',
         vendorReply: {
@@ -190,9 +192,8 @@ export const getAnonymousInquiries = async (req, res) => {
     const { vendorId } = req.params;
     let anonymousInquiries = await AnonymousInquiry.find({ vendorId }).sort({ createdAt: -1 });
 
-    // Fallback: If eventDate is missing, use weddingDate
+    // If eventDate is missing, use weddingDate as fallback for legacy data
     anonymousInquiries = anonymousInquiries.map(inq => {
-      // If eventDate is missing but weddingDate exists, use weddingDate
       if ((!inq.eventDate || inq.eventDate === '' || inq.eventDate === '07/07/2025') && inq.weddingDate) {
         return {
           ...inq.toObject(),

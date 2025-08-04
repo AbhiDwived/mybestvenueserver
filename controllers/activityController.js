@@ -7,22 +7,23 @@ export const getRecentActivities = async (req, res) => {
     const limit = Number.parseInt(req.query.limit) || 10
     const skip = (page - 1) * limit
 
-    // Build filter object
     const filter = {}
     if (req.query.type) filter.type = req.query.type
     if (req.query.role) filter["actor.role"] = req.query.role
     if (req.query.status) filter.status = req.query.status
     if (req.query.severity) filter.severity = req.query.severity
 
-    // Date range filter
     if (req.query.startDate || req.query.endDate) {
       filter.createdAt = {}
       if (req.query.startDate) filter.createdAt.$gte = new Date(req.query.startDate)
       if (req.query.endDate) filter.createdAt.$lte = new Date(req.query.endDate)
     }
 
-    const activities = await Activity.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
-console.log("Fetched Activities:", activities); // 👈 Log what's returned
+    const activities = await Activity.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
 
     const total = await Activity.countDocuments(filter)
 
@@ -87,7 +88,6 @@ export const logActivityHandler = async (req, res) => {
   try {
     const { type, description, actor, target, meta, status, severity } = req.body
 
-    // Validate required fields
     if (!type || !description || !actor) {
       return res.status(400).json({
         success: false,
@@ -95,7 +95,6 @@ export const logActivityHandler = async (req, res) => {
       })
     }
 
-    // Get IP and User Agent from request
     const ipAddress = req.ip || req.connection.remoteAddress
     const userAgent = req.get("User-Agent")
 
@@ -133,27 +132,21 @@ export const getActivityStats = async (req, res) => {
   try {
     const days = Number.parseInt(req.query.days) || 30
 
-    // Get activity counts by type
     const typeCounts = await Activity.getActivityCounts(days)
-
-    // Get daily activity data
     const dailyActivity = await Activity.getDailyActivity(days)
 
-    // Get total activities
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - days)
     const totalActivities = await Activity.countDocuments({
       createdAt: { $gte: startDate },
     })
 
-    // Get activities by role
     const roleCounts = await Activity.aggregate([
       { $match: { createdAt: { $gte: startDate } } },
       { $group: { _id: "$actor.role", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
     ])
 
-    // Get activities by status
     const statusCounts = await Activity.aggregate([
       { $match: { createdAt: { $gte: startDate } } },
       { $group: { _id: "$status", count: { $sum: 1 } } },
@@ -229,7 +222,7 @@ export const searchActivities = async (req, res) => {
   }
 }
 
-// Delete activity (admin only)
+// Delete activity by ID
 export const deleteActivity = async (req, res) => {
   try {
     const { id } = req.params
@@ -257,7 +250,7 @@ export const deleteActivity = async (req, res) => {
   }
 }
 
-// Bulk delete activities (admin only)
+// Bulk delete activities by IDs or olderThan days
 export const bulkDeleteActivities = async (req, res) => {
   try {
     const { ids, olderThan } = req.body

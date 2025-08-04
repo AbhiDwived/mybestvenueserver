@@ -10,7 +10,7 @@ export const getUserChecklist = async (req, res) => {
     let checklist = await Checklist.findOne({ user: userId });
 
     if (!checklist) {
-      // Return empty checklist if none exists yet
+      // Return empty checklist if none exists yet (first time user)
       return res.status(200).json({
         success: true,
         data: {
@@ -41,6 +41,7 @@ export const addChecklistTask = async (req, res) => {
     const userId = req.user.id;
     const { task } = req.body;
 
+    // Task description is required
     if (!task) {
       return res.status(400).json({
         success: false,
@@ -52,6 +53,7 @@ export const addChecklistTask = async (req, res) => {
     let checklist = await Checklist.findOne({ user: userId });
 
     if (!checklist) {
+      // Create new checklist document if not found
       checklist = new Checklist({
         user: userId,
         items: [],
@@ -93,6 +95,7 @@ export const toggleTaskCompletion = async (req, res) => {
     const userId = req.user.id;
     const { taskId } = req.params;
 
+    // Validate MongoDB ObjectId format
     if (!mongoose.Types.ObjectId.isValid(taskId)) {
       return res.status(400).json({
         success: false,
@@ -110,7 +113,7 @@ export const toggleTaskCompletion = async (req, res) => {
       });
     }
 
-    // Find the specific task
+    // Find the specific task by its ObjectId
     const taskIndex = checklist.items.findIndex(item => item._id.toString() === taskId);
 
     if (taskIndex === -1) {
@@ -123,7 +126,7 @@ export const toggleTaskCompletion = async (req, res) => {
     // Toggle completion status
     checklist.items[taskIndex].completed = !checklist.items[taskIndex].completed;
     
-    // Update completed count
+    // Update completed count after toggling
     checklist.completedCount = checklist.items.filter(item => item.completed).length;
 
     await checklist.save();
@@ -149,6 +152,7 @@ export const deleteChecklistTask = async (req, res) => {
     const userId = req.user.id;
     const { taskId } = req.params;
 
+    // Validate MongoDB ObjectId format
     if (!mongoose.Types.ObjectId.isValid(taskId)) {
       return res.status(400).json({
         success: false,
@@ -166,7 +170,7 @@ export const deleteChecklistTask = async (req, res) => {
       });
     }
 
-    // Find the specific task
+    // Find the specific task by its ObjectId
     const taskIndex = checklist.items.findIndex(item => item._id.toString() === taskId);
 
     if (taskIndex === -1) {
@@ -180,7 +184,7 @@ export const deleteChecklistTask = async (req, res) => {
     const wasCompleted = checklist.items[taskIndex].completed;
     checklist.items.splice(taskIndex, 1);
     
-    // Update counts
+    // Update counts after deletion
     checklist.totalCount = checklist.items.length;
     if (wasCompleted) {
       checklist.completedCount -= 1;

@@ -9,7 +9,7 @@ export const createReview = async (req, res) => {
     const { vendor, booking, rating, comment } = req.body;
     const user = req.user._id;
 
-    // Check for completed booking
+    // Only allow review if booking is completed by this user for this vendor
     const completedBooking = await Booking.findOne({
       _id: booking,
       user,
@@ -36,6 +36,7 @@ export const createReview = async (req, res) => {
 export const getVendorReviews = async (req, res) => {
   try {
     const { vendorId } = req.params;
+    // Only fetch reviews with status 'approved'
     const reviews = await Review.find({ vendor: vendorId, status: 'approved' })
       .populate('user', 'name profilePhoto')
       .sort({ createdAt: -1 });

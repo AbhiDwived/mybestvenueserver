@@ -20,22 +20,19 @@ export const register = async (req, res) => {
   try {
     const { name, email, phone, password } = req.body;
 
-    // Validate required fields
+    //  Validate required fields for registration
     if (!name || !email || !phone || !password) {
-      return res
-        .status(400)
-        .json({ message: "All required fields must be provided" });
+      return res.status(400).json({ message: "All required fields must be provided" });
     }
 
-    // Check if user already exists in DB
+    //  Check if user already exists in DB
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Check if pending registration exists
+    //  Check if pending registration exists and handle OTP expiry
     if (pendingRegistrations[email]) {
-      // If OTP expired, allow re-registration
       if (pendingRegistrations[email].otpExpires < Date.now()) {
         delete pendingRegistrations[email];
       } else {
@@ -71,7 +68,7 @@ export const register = async (req, res) => {
 
       res.status(201).json({
         message: "OTP sent to email. Please verify to activate your account.",
-        email, // Use email as identifier for OTP verification
+        email,
       });
     } catch (error) {
       console.error("Error sending email:", error);
@@ -89,29 +86,17 @@ export const register = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   const { email, otp } = req.body;
 
-  console.log("--- VERIFY OTP DEBUG START ---");
-  console.log("Received email:", email);
-  console.log("Received raw OTP:", otp);
-
   try {
     const pending = pendingRegistrations[email];
     if (!pending) {
-      console.log("No pending registration found for email:", email);
       return res.status(400).json({ message: "No pending registration found. Please register again." });
     }
 
+    //  Compare trimmed OTP and check expiry
     const trimmedOtp = otp?.toString().trim();
     const storedOtp = pending.otp?.toString();
     const isOtpMatch = trimmedOtp === storedOtp;
     const isExpired = pending.otpExpires < Date.now();
-
-    console.log(
-      "OTP Match?",
-      isOtpMatch
-        ? "✅ Yes"
-        : `❌ No (Expected \"${storedOtp}\", Got \"${trimmedOtp}\")`
-    );
-    console.log("OTP Expired?", isExpired ? "✅ Yes" : "❌ No");
 
     if (!isOtpMatch || isExpired) {
       return res.status(400).json({ message: "Invalid or expired OTP" });
@@ -149,10 +134,7 @@ export const verifyOtp = async (req, res) => {
         profilePhoto: newUser.profilePhoto,
       },
     });
-
-    console.log("--- VERIFY OTP DEBUG END ---\n");
   } catch (error) {
-    console.error("🚨 Error verifying OTP:", error);
     res.status(500).json({ message: "Error verifying OTP", error: error.message });
   }
 };
@@ -162,18 +144,17 @@ export const resendOtp = async (req, res) => {
   const { email } = req.body;
 
   try {
-    // Check if there is a pending registration
+    //  Check if there is a pending registration
     if (!pendingRegistrations[email]) {
       return res.status(400).json({
         message: "No pending registration found for this email. Please register first.",
       });
     }
 
-    // Generate new OTP
+    // Generate new OTP and update in pendingRegistrations
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-    // Update OTP and expiry in pendingRegistrations
     pendingRegistrations[email].otp = otp;
     pendingRegistrations[email].otpExpires = otpExpires;
 
@@ -191,16 +172,14 @@ export const resendOtp = async (req, res) => {
         email,
       });
     } catch (emailError) {
-      console.error("Error sending email:", emailError);
       return res.status(500).json({ message: "Failed to send OTP email" });
     }
   } catch (error) {
-    console.error("Error in resendOtp:", error);
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// forgotPassword
+// Forgot password: send OTP
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
@@ -208,6 +187,7 @@ export const forgotPassword = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    //  Generate OTP and expiry for password reset
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000;
 
@@ -219,11 +199,7 @@ export const forgotPassword = async (req, res) => {
 
     await user.save();
 
-    console.log("🔐 OTP:", otp);
-    console.log("🕒 OTP Expires:", new Date(otpExpires));
-    console.log("📧 Email to be sent to:", user.email);
-
-    // ✉️ SEND OTP VIA EMAIL
+    // Send OTP via email
     try {
       const { sendEmail } = await import('../utils/sendEmail.js');
       await sendEmail({
@@ -232,8 +208,9 @@ export const forgotPassword = async (req, res) => {
         message: `Your OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`,
       });
     } catch (error) {
-      console.error("❌ Error sending email:", error.message);
-      console.error("Full error:", error); // Log full error object
+      delete user.otp;
+      delete user.otpExpires;
+      await user.save();
       return res.status(500).json({ message: "Failed to send OTP email" });
     }
 
@@ -242,7 +219,6 @@ export const forgotPassword = async (req, res) => {
       userId: user._id,
     });
   } catch (error) {
-    console.error("🚨 Error:", error.message);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
@@ -252,17 +228,15 @@ export const resendPasswordResetOtp = async (req, res) => {
   const { userId } = req.body;
 
   try {
-    // Find user in database
+    //  Find user in database and generate new OTP
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Generate new OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-    // Update user with new OTP
     user.otp = otp;
     user.otpExpires = otpExpires;
     user.markModified("otp");
@@ -283,21 +257,19 @@ export const resendPasswordResetOtp = async (req, res) => {
         userId: user._id,
       });
     } catch (emailError) {
-      console.error("Error sending email:", emailError);
       return res.status(500).json({ message: "Failed to send OTP email" });
     }
   } catch (error) {
-    console.error("Error in resendPasswordResetOtp:", error);
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// verifyPasswordReset
+// Verify password reset OTP
 export const verifyPasswordReset = async (req, res) => {
   const { userId, otp } = req.body;
 
   try {
-    // Include hidden fields explicitly
+    //  Include hidden fields explicitly for OTP verification
     const user = await User.findById(userId).select("+otp +otpExpires");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -317,18 +289,16 @@ export const verifyPasswordReset = async (req, res) => {
       userId,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error verifying OTP", error: error.message });
+    res.status(500).json({ message: "Error verifying OTP", error: error.message });
   }
 };
 
-// resetPassword
+// Reset password after OTP verification
 export const resetPassword = async (req, res) => {
   const { userId, newPassword } = req.body;
 
   try {
-    // Include hidden fields explicitly
+    //  Include hidden fields explicitly for password reset
     const user = await User.findById(userId).select("+otp +otpExpires");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -351,9 +321,7 @@ export const resetPassword = async (req, res) => {
       message: "Password reset successful",
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error resetting password", error: error.message });
+    res.status(500).json({ message: "Error resetting password", error: error.message });
   }
 };
 
@@ -362,7 +330,7 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Make sure to select the password field
+    //  Make sure to select the password field for comparison
     const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
@@ -407,7 +375,7 @@ export const login = async (req, res) => {
   }
 };
 
-//getUserProfile
+// Get user profile (basic info)
 export const getUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select(
@@ -418,11 +386,8 @@ export const getUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Format location from available fields
-    const location =
-      user.city || user.state || user.address || "Location not set";
-
-    // Format wedding date
+    //  Format location and wedding date for response
+    const location = user.city || user.state || user.address || "Location not set";
     const weddingDate = user.weddingDate
       ? new Date(user.weddingDate).toISOString().split("T")[0]
       : "No wedding date set";
@@ -435,7 +400,6 @@ export const getUserProfile = async (req, res) => {
       location,
     });
   } catch (error) {
-    console.error("Get Profile Error:", error);
     res.status(500).json({ message: "Failed to get profile" });
   }
 };
@@ -444,42 +408,33 @@ export const getUserProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { name, email, phone, address, city, state, country, weddingDate } =
-      req.body;
+    const { name, email, phone, address, city, state, country, weddingDate } = req.body;
 
-    // Validate required fields
+    //  Validate required fields for profile update
     if (!name || !email || !phone) {
-      return res
-        .status(400)
-        .json({ message: "Name, email and phone are required" });
+      return res.status(400).json({ message: "Name, email and phone are required" });
     }
 
-    // Check if email is being changed and if it's already in use
+    //  Check if email is being changed and if it's already in use
     const existingUser = await User.findOne({ email });
     if (existingUser && existingUser._id.toString() !== userId) {
-      return res
-        .status(400)
-        .json({ message: "Email is already in use by another user" });
+      return res.status(400).json({ message: "Email is already in use by another user" });
     }
 
-    // Get the current user to check for existing profile photo
+    //  Get the current user to check for existing profile photo
     const currentUser = await User.findById(userId);
     if (!currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Handle profile photo - use new URL if a file was uploaded
+    //  Handle profile photo - use new URL if a file was uploaded
     let profilePhoto = currentUser.profilePhoto;
     if (req.fileUrl) {
-      // If there's a new image uploaded, use its URL
       profilePhoto = req.fileUrl;
-
-      // If there's an existing image, delete it
       if (currentUser.profilePhoto) {
         try {
           await deleteFile(currentUser.profilePhoto);
         } catch (error) {
-          console.error("Error deleting old image:", error);
           // Continue with update even if old image deletion fails
         }
       }
@@ -526,10 +481,7 @@ export const updateProfile = async (req, res) => {
       user: formattedUser,
     });
   } catch (error) {
-    console.error("Profile update error:", error);
-    res
-      .status(500)
-      .json({ message: "Error updating profile", error: error.message });
+    res.status(500).json({ message: "Error updating profile", error: error.message });
   }
 };
 
@@ -538,7 +490,7 @@ export const deleteUser = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Find and delete the user
+    //  Find and delete the user
     const deletedUser = await User.findByIdAndDelete(userId);
     if (!deletedUser) {
       return res.status(404).json({ message: "User not found" });
@@ -548,22 +500,18 @@ export const deleteUser = async (req, res) => {
       message: "User deleted successfully",
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error deleting user", error: error.message });
+    res.status(500).json({ message: "Error deleting user", error: error.message });
   }
 };
 
-// Logout user
+// Logout user (stateless, just a message)
 export const logout = async (req, res) => {
   try {
     res.status(200).json({
       message: "Logout successful. Please clear token on frontend.",
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error logging out", error: error.message });
+    res.status(500).json({ message: "Error logging out", error: error.message });
   }
 };
 
@@ -573,11 +521,10 @@ export const addToWishlist = async (req, res) => {
   const { venueId } = req.params;
 
   try {
+    //  Only add if venue exists and is approved
     const venue = await Venue.findById(venueId);
     if (!venue || !venue.isApproved) {
-      return res
-        .status(404)
-        .json({ message: "Venue not found or not approved" });
+      return res.status(404).json({ message: "Venue not found or not approved" });
     }
 
     const user = await User.findById(userId);
@@ -590,9 +537,7 @@ export const addToWishlist = async (req, res) => {
 
     res.status(200).json({ message: "Venue added to wishlist" });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error adding to wishlist", error: error.message });
+    res.status(500).json({ message: "Error adding to wishlist", error: error.message });
   }
 };
 
@@ -608,9 +553,7 @@ export const removeFromWishlist = async (req, res) => {
 
     res.status(200).json({ message: "Venue removed from wishlist" });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error removing from wishlist", error: error.message });
+    res.status(500).json({ message: "Error removing from wishlist", error: error.message });
   }
 };
 
@@ -619,6 +562,7 @@ export const getWishlist = async (req, res) => {
   const userId = req.user.id;
 
   try {
+    //  Populate wishlist with venue details and category name
     const user = await User.findById(userId).populate({
       path: "wishlist",
       populate: { path: "category", select: "name" },
@@ -626,18 +570,17 @@ export const getWishlist = async (req, res) => {
 
     res.status(200).json({ wishlist: user.wishlist });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error fetching wishlist", error: error.message });
+    res.status(500).json({ message: "Error fetching wishlist", error: error.message });
   }
 };
 
-
+// Add user inquiry message
 export const addUserInquiryMessage = async (req, res) => {
   try {
     const { userId } = req.params;
     const { vendorId, message, name, email, phone, weddingDate } = req.body;
 
+    //  Validate required fields for inquiry
     if (!userId || !vendorId || !message || !message.trim()) {
       return res.status(400).json({ message: "Missing required fields" });
     }
@@ -670,22 +613,20 @@ export const addUserInquiryMessage = async (req, res) => {
 
     res.status(200).json({ message: "User inquiry saved", result: inquiry });
   } catch (error) {
-    console.error("Inquiry Save Error:", error);
     res.status(500).json({ message: "Error saving inquiry", error: error.message });
   }
 };
 
-
-//Get userinquiry List api 
+// Get user inquiry list
 export const getUserInquiryList = async (req, res) => {
   try {
     const { userId } = req.body;
-    // const userInquiryList = await userInquiry.find({email:email}).sort({ createdAt: -1 });
     const userInquiryList = await inquirySchema
       .find({ userId })
       .sort({ createdAt: -1 })
       .populate("vendorId", "businessName");
 
+    //  Format inquiry list with business name and vendorId
     const modifiedList = userInquiryList.map((inquiry) => ({
       ...inquiry.toObject(),
       business: inquiry.vendorId?.businessName || null,
@@ -702,7 +643,8 @@ export const getUserInquiryList = async (req, res) => {
     });
   }
 };
-//   Update userinquiry api 
+
+// Update user inquiry
 export const updateUserInquiry = async (req, res) => {
   try {
     const { inquiryId } = req.params;
@@ -719,9 +661,7 @@ export const updateUserInquiry = async (req, res) => {
       updatedUserInquiry,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating user inquiry", error: error.message });
+    res.status(500).json({ message: "Error updating user inquiry", error: error.message });
   }
 };
 
@@ -731,20 +671,18 @@ export const updatePassword = async (req, res) => {
     const { userId } = req.params;
     const { currentPassword, newPassword } = req.body;
 
-    // Validate required fields
+    //  Validate required fields for password update
     if (!currentPassword || !newPassword) {
-      return res
-        .status(400)
-        .json({ message: "Current password and new password are required" });
+      return res.status(400).json({ message: "Current password and new password are required" });
     }
 
-    // Find user and include password field
+    //  Find user and include password field
     const user = await User.findById(userId).select("+password");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Verify current password
+    //  Verify current password before updating
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Current password is incorrect" });
@@ -761,18 +699,16 @@ export const updatePassword = async (req, res) => {
       message: "Password updated successfully",
     });
   } catch (error) {
-    console.error("Password update error:", error);
-    res
-      .status(500)
-      .json({ message: "Error updating password", error: error.message });
+    res.status(500).json({ message: "Error updating password", error: error.message });
   }
 };
 
-//submit contact form
+// Submit contact form
 export const submitContactForm = async (req, res) => {
   const { name, email, phone, message } = req.body;
 
   try {
+    //  Validate all fields for contact form
     if (!name || !email || !phone || !message) {
       return res.status(400).json({ error: "All fields are required" });
     }
@@ -785,15 +721,11 @@ export const submitContactForm = async (req, res) => {
       message: "Message sent successfully" 
     });
   } catch (error) {
-    console.error('Error submitting contact form:', error);
-    return res.status(500).json({ 
-      success: false,
-      error: "Failed to send message. Please try again." 
-    });
+    res.status(500).json({ success: false, error: "Failed to send message. Please try again." });
   }
 };
 
-//getAllMessage
+// Get all contact messages (admin)
 export const getAllMessage = async (req, res) => {
   try {
     const message = await Contact.find().sort({ createdAt: -1 });
@@ -825,8 +757,7 @@ export const refreshToken = async (req, res) => {
     // Generate new tokens
     const tokens = generateTokens({ id: user._id, email: user.email, role: user.role });
 
-    // Add this after generating new tokens:
-    // Save the new refresh token to a DB/store with the user ID
+    //  Save the new refresh token to a DB/store with the user ID
     await User.findByIdAndUpdate(user._id, { 
       refreshToken: tokens.refreshToken 
     });
@@ -866,7 +797,7 @@ export const getUserProfileById = async (req, res) => {
       });
     }
 
-    // Format the user data
+    //  Format the user data for response
     const formattedUser = {
       _id: user._id,
       name: user.name,

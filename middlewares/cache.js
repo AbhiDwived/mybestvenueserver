@@ -9,38 +9,37 @@ const cache = new NodeCache({
   deleteOnExpire: true, // Delete expired items
 });
 
-// Cache middleware
+// Cache middleware for GET requests
 export const cacheMiddleware = (duration = 600) => {
   return (req, res, next) => {
-    // Skip caching for non-GET requests or authenticated routes
+    //  Skip caching for non-GET requests or authenticated routes
     if (req.method !== 'GET' || req.headers.authorization) {
       return next();
     }
 
-    // Create a cache key from the request path and query parameters
+    //  Create a cache key from the request path and query parameters
     const key = `__express__${req.originalUrl || req.url}`;
 
-    // Try to get the cached response
+    //  Try to get the cached response for this key
     const cachedResponse = cache.get(key);
 
     if (cachedResponse) {
-      // Return cached response
+      //  If cache hit, return cached response immediately
       logger.debug(`Cache hit for ${key}`);
       res.send(cachedResponse);
       return;
     }
 
-    // Store the original send function
+    //  Store the original send function to call later
     const originalSend = res.send;
 
-    // Override the send function to cache the response
+    //  Override the send function to cache the response body
     res.send = function (body) {
-      // Only cache successful responses
+      // Only cache successful (2xx) responses
       if (res.statusCode >= 200 && res.statusCode < 300) {
         cache.set(key, body, duration);
         logger.debug(`Cache set for ${key}`);
       }
-      
       // Call the original send function
       originalSend.call(this, body);
     };
@@ -49,27 +48,27 @@ export const cacheMiddleware = (duration = 600) => {
   };
 };
 
-// Function to clear cache for specific routes
+// Function to clear cache for specific routes or all cache
 export const clearCache = (routePattern) => {
   const keys = cache.keys();
-  
+
   if (routePattern) {
-    // Clear specific route pattern
+    //  Clear cache entries matching the route pattern (regex)
     const regex = new RegExp(routePattern);
     const matchedKeys = keys.filter(key => regex.test(key));
-    
+
     matchedKeys.forEach(key => {
       cache.del(key);
       logger.debug(`Cache cleared for ${key}`);
     });
-    
+
     return matchedKeys.length;
   } else {
-    // Clear all cache
+    //  Clear all cache entries if no pattern provided
     cache.flushAll();
     logger.debug('All cache cleared');
     return keys.length;
   }
 };
 
-export default { cacheMiddleware, clearCache }; 
+export default { cacheMiddleware, clearCache };

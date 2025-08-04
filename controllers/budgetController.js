@@ -9,7 +9,7 @@ export const getUserBudget = async (req, res) => {
     let budget = await Budget.findOne({ user: userId });
 
     if (!budget) {
-      // Return empty budget if none exists yet
+      // Return empty budget if none exists yet (first time user)
       return res.status(200).json({
         success: true,
         data: {
@@ -40,6 +40,7 @@ export const addBudgetItem = async (req, res) => {
     const userId = req.user.id;
     const { category, planned } = req.body;
 
+    // Validate required fields and positive planned amount
     if (!category || !planned || planned <= 0) {
       return res.status(400).json({
         success: false,
@@ -51,6 +52,7 @@ export const addBudgetItem = async (req, res) => {
     let budget = await Budget.findOne({ user: userId });
 
     if (!budget) {
+      // Create new budget document if not found
       budget = new Budget({
         user: userId,
         items: [],
@@ -68,7 +70,7 @@ export const addBudgetItem = async (req, res) => {
 
     budget.items.push(newItem);
 
-    // Update totals
+    // Update totals after adding new item
     budget.totalPlanned = budget.items.reduce((sum, item) => sum + item.planned, 0);
     budget.totalActual = budget.items.reduce((sum, item) => sum + item.actual, 0);
 
@@ -106,7 +108,7 @@ export const updateBudgetItem = async (req, res) => {
       });
     }
 
-    // Find the specific item
+    // Find the specific item by its ObjectId
     const itemIndex = budget.items.findIndex(item => item._id.toString() === itemId);
 
     if (itemIndex === -1) {
@@ -116,12 +118,12 @@ export const updateBudgetItem = async (req, res) => {
       });
     }
 
-    // Update the item
+    // Update only provided fields
     if (category) budget.items[itemIndex].category = category;
     if (planned !== undefined) budget.items[itemIndex].planned = Number(planned);
     if (actual !== undefined) budget.items[itemIndex].actual = Number(actual);
 
-    // Update totals
+    // Update totals after item update
     budget.totalPlanned = budget.items.reduce((sum, item) => sum + item.planned, 0);
     budget.totalActual = budget.items.reduce((sum, item) => sum + item.actual, 0);
 
@@ -158,7 +160,7 @@ export const deleteBudgetItem = async (req, res) => {
       });
     }
 
-    // Find and remove the specific item
+    // Find and remove the specific item by its ObjectId
     const itemIndex = budget.items.findIndex(item => item._id.toString() === itemId);
 
     if (itemIndex === -1) {
@@ -168,10 +170,10 @@ export const deleteBudgetItem = async (req, res) => {
       });
     }
 
-    // Remove the item
+    // Remove the item from the array
     budget.items.splice(itemIndex, 1);
 
-    // Update totals
+    // Update totals after deletion
     budget.totalPlanned = budget.items.reduce((sum, item) => sum + item.planned, 0);
     budget.totalActual = budget.items.reduce((sum, item) => sum + item.actual, 0);
 

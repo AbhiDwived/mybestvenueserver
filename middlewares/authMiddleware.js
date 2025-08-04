@@ -6,6 +6,7 @@ import Admin from '../models/Admin.js';
 
 // Generate tokens
 export const generateTokens = (payload) => {
+  //  Generate both access and refresh tokens with different secrets and expiry
   const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
   const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
   return { accessToken, refreshToken };
@@ -13,6 +14,7 @@ export const generateTokens = (payload) => {
 
 // Verify refresh token
 export const verifyRefreshToken = (token) => {
+  //  Verify refresh token using refresh secret, return decoded or null
   try {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     return decoded;
@@ -25,6 +27,7 @@ export const verifyRefreshToken = (token) => {
 export const verifyToken = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    //  Require Bearer token in Authorization header
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ message: 'No token provided' });
     }
@@ -32,7 +35,7 @@ export const verifyToken = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Check user type and set appropriate user data
+    //  Check user type and set appropriate user data on req.user
     let user;
     switch (decoded.role) {
       case 'user':
@@ -64,6 +67,7 @@ export const verifyToken = async (req, res, next) => {
 
 // Role-based authorization middleware
 export const authorize = (...roles) => {
+  //  Allow only users with specified roles to proceed
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({ message: 'Not authorized' });
@@ -72,7 +76,7 @@ export const authorize = (...roles) => {
   };
 };
 
-// Add this for user verification
+// Verify user (role: user)
 export const VerifyUser = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -83,13 +87,10 @@ export const VerifyUser = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Decoded token:', decoded);
-
+    //  Only allow if role is user
     if (!decoded.role) {
-      console.log('Role missing in token!');
       return res.status(403).json({ message: 'Access denied: Invalid token format' });
     } else if (decoded.role !== 'user') {
-      console.log(`Role is not user, it is: ${decoded.role}`);
       return res.status(403).json({ message: 'Access denied: Not a user' });
     }
 
@@ -100,10 +101,9 @@ export const VerifyUser = (req, res, next) => {
   }
 };
 
-// Add this for vendor verification
+// Verify vendor (role: vendor)
 export const VerifyVendor = (req, res, next) => {
   const authHeader = req.headers.authorization;
-  console.log('Authorization header:', authHeader); // Debug log
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'Authorization token missing or malformed' });
   }
@@ -112,19 +112,18 @@ export const VerifyVendor = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Decoded token:', decoded); // Debug log
+    //  Only allow if role is vendor
     if (decoded.role !== 'vendor') {
       return res.status(403).json({ message: 'Access denied: Not a vendor' });
     }
     req.user = decoded;
     next();
   } catch (err) {
-    console.log('JWT verification error:', err); // Debug log
     return res.status(401).json({ message: 'Token is invalid or expired' });
   }
 };
 
-// Add this for admin verification
+// Verify admin (role: admin)
 export const VerifyAdmin = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -135,6 +134,7 @@ export const VerifyAdmin = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    //  Only allow if role is admin
     if (decoded.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied: Not an admin' });
     }
@@ -145,28 +145,23 @@ export const VerifyAdmin = (req, res, next) => {
   }
 };
 
-// ✅ Check if Vendor is Approved (Admin bypass allowed)
+// Check if Vendor is Approved (Admin bypass allowed)
 export const CheckVendorApproval = async (req, res, next) => {
   try {
-    // Allow admin to bypass vendor approval check
+    //  Allow admin to bypass vendor approval check
     if (req.user.role === 'admin') {
-      console.log('✅ Admin bypassing vendor approval check');
       return next();
     }
     
-    const vendor = await Vendor.findById(req.user.id); // ✅ Use Vendor model
+    const vendor = await Vendor.findById(req.user.id);
     if (!vendor || vendor.role !== 'vendor') {
-      console.log('❌ Vendor not found or invalid role:', { vendorExists: !!vendor, role: vendor?.role });
       return res.status(403).json({ message: 'Access denied: Not a valid vendor' });
     }
     if (!vendor.isApproved) {
-      console.log('❌ Vendor not approved:', vendor.businessName);
       return res.status(403).json({ message: 'Access denied: Vendor not approved. Please contact admin.' });
     }
-    console.log('✅ Vendor approval check passed:', vendor.businessName);
     next();
   } catch (err) {
-    console.error('❌ Error in vendor approval check:', err);
     return res.status(500).json({ message: 'Server error during approval check' });
   }
 };
@@ -184,24 +179,19 @@ export const VerifyAdminOrVendor = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
 
-    // If user is an admin, always grant access
-    if (decoded.role === 'admin') {
+    //  Allow admin or vendor to proceed, deny others
+    if (decoded.role === 'admin' || decoded.role === 'vendor') {
       return next();
     }
 
-    // If user is a vendor, always grant access (they can only access their own data anyway)
-    if (decoded.role === 'vendor') {
-      return next();
-    }
-
-    // If neither admin nor vendor, deny access
     return res.status(403).json({ message: 'Access denied' });
   } catch (err) {
     return res.status(401).json({ message: 'Token is invalid or expired' });
   }
 };
 
-// Check that this function is properly exported
+// Placeholder for protect middleware (implement as needed)
 export const protect = async (req, res, next) => {
-  // Implementation...
+  //  Implement additional protection logic if needed
+  // ...existing code...
 };

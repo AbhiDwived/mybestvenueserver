@@ -792,7 +792,6 @@ export const addVendorReplyToInquiry = async (req, res) => {
 
 
 
-
 export const getVendorRepliedInquiryList = async (req, res) => {
   try {
     // Extract vendorId from route params
@@ -834,7 +833,6 @@ export const getVendorRepliedInquiryList = async (req, res) => {
 export const addServicesPackage = async(req,res,next) =>{
   try{
    
-    
     const {vendorId, packageName,description,price,offerPrice, services} = req.body;  
     const vendor = await Vendor.findOne({ _id: vendorId });
     if (!vendor) {
