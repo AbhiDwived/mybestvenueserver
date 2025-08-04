@@ -10,18 +10,18 @@ import { VerifyUser } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 // All routes are protected with VerifyUser middleware
-// Deep comment: Only authenticated users can access or modify their budget
+//  Only authenticated users can access or modify their budget
 
-// Deep comment: Get the full budget for the logged-in user
+//  Get the full budget for the logged-in user
 router.get('/', VerifyUser, getUserBudget);
 
-// Deep comment: Add a new budget item for the logged-in user
+//  Add a new budget item for the logged-in user
 router.post('/item', VerifyUser, addBudgetItem);
 
-// Deep comment: Update a specific budget item by its ID (user must own it)
+//  Update a specific budget item by its ID (user must own it)
 router.put('/item/:itemId', VerifyUser, updateBudgetItem);
 
-// Deep comment: Delete a specific budget item by its ID (user must own it)
+//  Delete a specific budget item by its ID (user must own it)
 router.delete('/item/:itemId', VerifyUser, deleteBudgetItem);
 
 export default router;

@@ -6,12 +6,12 @@ import { VerifyVendor } from '../middlewares/authMiddleware.js';
 const router = express.Router();
 
 // Upload image for rich text editor (vendor only)
-// Deep comment: Only vendors can upload images for the blog editor; image is stored in 'blogs/editor' folder
+//  Only vendors can upload images for the blog editor; image is stored in 'blogs/editor' folder
 router.post('/image', 
   VerifyVendor,
   upload.single('image'),
   (req, res, next) => {
-    // Deep comment: Set the folder path for editor images
+    //  Set the folder path for editor images
     req.imagePath = 'blogs/editor';
     next();
   },
@@ -19,21 +19,21 @@ router.post('/image',
   (req, res) => {
     try {
       if (!req.file) {
-        // Deep comment: Return error if no image file was provided in the request
+        //  Return error if no image file was provided in the request
         return res.status(400).json({
           success: false,
           message: 'No image file provided'
         });
       }
 
-      // Deep comment: Return the uploaded image URL (from S3/ImageKit or local fallback)
+      //  Return the uploaded image URL (from S3/ImageKit or local fallback)
       res.status(200).json({
         success: true,
         message: 'Image uploaded successfully',
         url: req.file.location || req.imageUrl || req.fileUrl || `/uploads/blogs/editor/${req.file.filename}`
       });
     } catch (error) {
-      // Deep comment: Handle and return any upload errors
+      //  Handle and return any upload errors
       res.status(500).json({
         success: false,
         message: 'Error uploading image',
@@ -44,11 +44,11 @@ router.post('/image',
 );
 
 // Upload profile picture (any user)
-// Deep comment: Upload a profile picture, store in 'profiles' folder, and return the image URL
+//  Upload a profile picture, store in 'profiles' folder, and return the image URL
 router.post('/profile-picture', 
   upload.single('profilePicture'),
   (req, res, next) => {
-    // Deep comment: Set the folder path for profile pictures
+    //  Set the folder path for profile pictures
     req.imagePath = 'profiles';
     next();
   },
@@ -56,21 +56,21 @@ router.post('/profile-picture',
   (req, res) => {
     try {
       if (!req.file) {
-        // Deep comment: Return error if no profile picture was provided
+        //  Return error if no profile picture was provided
         return res.status(400).json({
           success: false,
           message: 'No image file provided'
         });
       }
 
-      // Deep comment: Return the uploaded profile picture URL (from S3/ImageKit or local fallback)
+      //  Return the uploaded profile picture URL (from S3/ImageKit or local fallback)
       res.status(200).json({
         success: true,
         message: 'Profile picture uploaded successfully',
         url: req.imageUrl || req.fileUrl
       });
     } catch (error) {
-      // Deep comment: Handle and return any upload errors
+      //  Handle and return any upload errors
       res.status(500).json({
         success: false,
         message: 'Error uploading profile picture',
