@@ -47,6 +47,10 @@ export const createVendorByAdmin = async (req, res) => {
     if (vendorExists) {
       return res.status(400).json({ message: 'Vendor already exists' });
     }
+    const businessNameExists = await Vendor.findOne({ businessName });
+    if (businessNameExists) {
+      return res.status(400).json({ message: 'Business name already taken' });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 12);
     
@@ -142,10 +146,16 @@ export const registerVendor = async (req, res) => {
       return res.status(400).json({ message: "Invalid email address" });
     }
 
-    // Check if vendor already exists
+    // Check if vendor already exists by email
     const vendorExists = await Vendor.findOne({ email });
     if (vendorExists) {
       return res.status(400).json({ message: 'Vendor already exists' });
+    }
+
+    // Check if businessName is already taken
+    const businessNameExists = await Vendor.findOne({ businessName });
+    if (businessNameExists) {
+      return res.status(400).json({ message: 'Business name already taken' });
     }
 
     // Hash password
