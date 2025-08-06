@@ -93,16 +93,34 @@ export const deleteReview = async (req, res) => {
 export const getVendorsReviewStats = async (req, res) => {
   try {
     const vendorIds = req.query.vendorIds?.split(',') || [];
-    if (!vendorIds.length) return res.status(400).json({ message: 'No vendorIds provided' });
+    
+    // Filter out empty strings and invalid ObjectIds
+    const validVendorIds = vendorIds.filter(id => {
+      return id && id.trim() !== '' && mongoose.Types.ObjectId.isValid(id.trim());
+    });
+    
+    if (!validVendorIds.length) {
+      return res.status(400).json({ message: 'No valid vendorIds provided' });
+    }
+    
     // Aggregate average rating and count for each vendor
     const stats = await Review.aggregate([
-      { $match: { vendor: { $in: vendorIds.map(id => (typeof id === 'string' ? new mongoose.Types.ObjectId(id) : id)) } } },
-      { $group: {
-        _id: '$vendor',
-        avgRating: { $avg: '$rating' },
-        reviewCount: { $sum: 1 }
-      } }
+      { 
+        $match: { 
+          vendor: { 
+            $in: validVendorIds.map(id => new mongoose.Types.ObjectId(id.trim())) 
+          } 
+        } 
+      },
+      { 
+        $group: {
+          _id: '$vendor',
+          avgRating: { $avg: '$rating' },
+          reviewCount: { $sum: 1 }
+        } 
+      }
     ]);
+    
     // Map to vendorId keys
     const result = {};
     stats.forEach(s => {
@@ -111,10 +129,15 @@ export const getVendorsReviewStats = async (req, res) => {
         reviewCount: s.reviewCount
       };
     });
+    
     // Fill missing vendors with 0s
-    vendorIds.forEach(id => {
-      if (!result[id]) result[id] = { avgRating: 0, reviewCount: 0 };
+    validVendorIds.forEach(id => {
+      const vendorId = id.trim();
+      if (!result[vendorId]) {
+        result[vendorId] = { avgRating: 0, reviewCount: 0 };
+      }
     });
+    
     res.json({ stats: result });
   } catch (err) {
     res.status(500).json({ message: err.message });

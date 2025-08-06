@@ -262,37 +262,100 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
     const { city, type, slug } = req.params;
     const businessType = 'venue'; // Hardcoded for this route
     
-    // Improved slug parsing
+    // Enhanced slug parsing with better handling
     const inIndex = slug.lastIndexOf('-in-');
-    const businessName = inIndex > -1 ? slug.substring(0, inIndex).replace(/-/g, ' ') : slug.replace(/-/g, ' ');
-    const nearLocation = inIndex > -1 ? slug.substring(inIndex + 4).replace(/-/g, ' ') : '';
-
+    let businessName = inIndex > -1 ? slug.substring(0, inIndex).replace(/-/g, ' ') : slug.replace(/-/g, ' ');
+    let nearLocation = inIndex > -1 ? slug.substring(inIndex + 4).replace(/-/g, ' ') : '';
+    
+    // Clean up the names
+    businessName = businessName.trim();
+    nearLocation = nearLocation.trim();
+    
     console.log('Parsed SEO URL values:', { city, businessType, type, businessName, nearLocation });
 
+    // Build flexible search query
     const searchQuery = {
-      city: new RegExp(city.replace(/-/g, ' '), 'i'),
       businessType: businessType,
-      businessName: new RegExp(businessName, 'i')
+      isVerified: true,
+      isApproved: true
     };
 
+    // Add flexible city matching
+    const cityRegex = new RegExp(city.replace(/-/g, ' ').replace(/\s+/g, '\\s*'), 'i');
+    searchQuery.$or = [
+      { city: cityRegex },
+      { serviceAreas: { $in: [new RegExp(city.replace(/-/g, ' '), 'i')] } }
+    ];
+
+    // Add flexible business name matching
+    if (businessName) {
+      searchQuery.businessName = new RegExp(businessName.replace(/[^a-z0-9\s]/gi, ''), 'i');
+    }
+
+    // Add type matching
     if (businessType === 'vendor') {
       searchQuery.vendorType = new RegExp(type.replace(/-/g, ' '), 'i');
     } else {
       searchQuery.venueType = new RegExp(type.replace(/-/g, ' '), 'i');
     }
 
-    console.log('Search query:', searchQuery);
+    console.log('Enhanced search query:', JSON.stringify(searchQuery, null, 2));
 
-    const vendor = await Vendor.findOne(searchQuery);
+    // Try exact match first
+    let vendor = await Vendor.findOne(searchQuery);
+
+    // If no exact match, try broader search
+    if (!vendor) {
+      console.log('No exact match found, trying broader search...');
+      
+      const broadQuery = {
+        businessType: businessType,
+        isVerified: true,
+        isApproved: true,
+        $or: [
+          { businessName: new RegExp(businessName.split(' ')[0], 'i') },
+          { city: new RegExp(city.split('-')[0], 'i') }
+        ]
+      };
+
+      if (businessType === 'vendor') {
+        broadQuery.vendorType = new RegExp(type.replace(/-/g, ' '), 'i');
+      } else {
+        broadQuery.venueType = new RegExp(type.replace(/-/g, ' '), 'i');
+      }
+
+      vendor = await Vendor.findOne(broadQuery);
+    }
 
     if (!vendor) {
-      return res.status(404).json({ success: false, message: 'Vendor not found' });
+      // Find similar vendors for suggestions
+      const similarVendors = await Vendor.find({
+        businessType: businessType,
+        isVerified: true,
+        isApproved: true,
+        $or: [
+          { city: new RegExp(city.split('-')[0], 'i') },
+          { venueType: new RegExp(type.replace(/-/g, ' '), 'i') }
+        ]
+      }).limit(5);
+
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Vendor not found',
+        suggestions: similarVendors.map(v => ({
+          id: v._id,
+          businessName: v.businessName,
+          city: v.city,
+          venueType: v.venueType || v.vendorType,
+          seoUrl: `/${v.city?.toLowerCase().replace(/\s+/g, '-')}/${businessType}/${(v.venueType || v.vendorType)?.toLowerCase().replace(/\s+/g, '-')}/${v.businessName?.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-')}-in-${v.nearLocation?.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-') || 'area'}`
+        }))
+      });
     }
 
     res.json({ success: true, vendor });
   } catch (error) {
     console.error('SEO URL error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
@@ -300,37 +363,100 @@ router.get('/:businessType/:city/:type/:slug', async (req, res) => {
   try {
     const { businessType, city, type, slug } = req.params;
     
-    // Improved slug parsing
+    // Enhanced slug parsing with better handling
     const inIndex = slug.lastIndexOf('-in-');
-    const businessName = inIndex > -1 ? slug.substring(0, inIndex).replace(/-/g, ' ') : slug.replace(/-/g, ' ');
-    const nearLocation = inIndex > -1 ? slug.substring(inIndex + 4).replace(/-/g, ' ') : '';
+    let businessName = inIndex > -1 ? slug.substring(0, inIndex).replace(/-/g, ' ') : slug.replace(/-/g, ' ');
+    let nearLocation = inIndex > -1 ? slug.substring(inIndex + 4).replace(/-/g, ' ') : '';
+    
+    // Clean up the names
+    businessName = businessName.trim();
+    nearLocation = nearLocation.trim();
     
     console.log('Parsed SEO URL values:', { city, businessType, type, businessName, nearLocation });
     
+    // Build flexible search query
     const searchQuery = {
-      city: new RegExp(city.replace(/-/g, ' '), 'i'),
       businessType: businessType,
-      businessName: new RegExp(businessName, 'i')
+      isVerified: true,
+      isApproved: true
     };
-    
+
+    // Add flexible city matching
+    const cityRegex = new RegExp(city.replace(/-/g, ' ').replace(/\s+/g, '\\s*'), 'i');
+    searchQuery.$or = [
+      { city: cityRegex },
+      { serviceAreas: { $in: [new RegExp(city.replace(/-/g, ' '), 'i')] } }
+    ];
+
+    // Add flexible business name matching
+    if (businessName) {
+      searchQuery.businessName = new RegExp(businessName.replace(/[^a-z0-9\s]/gi, ''), 'i');
+    }
+
+    // Add type matching
     if (businessType === 'vendor') {
       searchQuery.vendorType = new RegExp(type.replace(/-/g, ' '), 'i');
     } else {
       searchQuery.venueType = new RegExp(type.replace(/-/g, ' '), 'i');
     }
     
-    console.log('Search query:', searchQuery);
+    console.log('Enhanced search query:', JSON.stringify(searchQuery, null, 2));
     
-    const vendor = await Vendor.findOne(searchQuery);
-    
+    // Try exact match first
+    let vendor = await Vendor.findOne(searchQuery);
+
+    // If no exact match, try broader search
     if (!vendor) {
-      return res.status(404).json({ success: false, message: 'Vendor not found' });
+      console.log('No exact match found, trying broader search...');
+      
+      const broadQuery = {
+        businessType: businessType,
+        isVerified: true,
+        isApproved: true,
+        $or: [
+          { businessName: new RegExp(businessName.split(' ')[0], 'i') },
+          { city: new RegExp(city.split('-')[0], 'i') }
+        ]
+      };
+
+      if (businessType === 'vendor') {
+        broadQuery.vendorType = new RegExp(type.replace(/-/g, ' '), 'i');
+      } else {
+        broadQuery.venueType = new RegExp(type.replace(/-/g, ' '), 'i');
+      }
+
+      vendor = await Vendor.findOne(broadQuery);
+    }
+
+    if (!vendor) {
+      // Find similar vendors for suggestions
+      const similarVendors = await Vendor.find({
+        businessType: businessType,
+        isVerified: true,
+        isApproved: true,
+        $or: [
+          { city: new RegExp(city.split('-')[0], 'i') },
+          { venueType: new RegExp(type.replace(/-/g, ' '), 'i') }
+        ]
+      }).limit(5);
+
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Vendor not found',
+        suggestions: similarVendors.map(v => ({
+          id: v._id,
+          businessName: v.businessName,
+          city: v.city,
+          venueType: v.venueType || v.vendorType,
+          seoUrl: `/${v.city?.toLowerCase().replace(/\s+/g, '-')}/${businessType}/${(v.venueType || v.vendorType)?.toLowerCase().replace(/\s+/g, '-')}/${v.businessName?.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-')}-in-${v.nearLocation?.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-') || 'area'}`
+        }))
+      });
     }
     
     res.json({ success: true, vendor });
   } catch (error) {
     console.error('SEO URL error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
