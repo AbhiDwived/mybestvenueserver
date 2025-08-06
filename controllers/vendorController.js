@@ -738,9 +738,24 @@ export const getVendorById = async (req, res) => {
 
     }
 
+    // Generate SEO URL
+    const generateSeoUrl = (vendor) => {
+      const city = vendor.city?.toLowerCase().replace(/\s+/g, '-') || 'location';
+      const businessType = vendor.businessType || 'vendor';
+      const type = (vendor.vendorType || vendor.venueType || 'service').toLowerCase().replace(/\s+/g, '-');
+      const businessName = vendor.businessName?.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-') || 'business';
+      const location = vendor.nearLocation?.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '-') || 'area';
+      return `/${city}/${businessType}/${type}/${businessName}-in-${location}`;
+    };
+
+    const vendorWithSeoUrl = {
+      ...vendor.toObject(),
+      seoUrl: generateSeoUrl(vendor)
+    };
+
     res.status(200).json({
       message: 'Vendor found successfully',
-      vendor,
+      vendor: vendorWithSeoUrl,
     });
   } catch (error) {
     res.status(500).json({ message: 'Error getting vendor', error: error.message });
@@ -1682,19 +1697,50 @@ export const deletePricingList= async (req, res) => {
 export const getSimilarVendors = async (req, res) => {
   try {
     const { vendorId } = req.params;
+    
+    // Validate vendorId parameter
+    if (!vendorId || vendorId === 'undefined' || vendorId === 'null') {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Valid vendor ID is required' 
+      });
+    }
+    
+    // Validate MongoDB ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(vendorId)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid vendor ID format' 
+      });
+    }
+    
     const vendor = await Vendor.findById(vendorId);
-    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });  
+    if (!vendor) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Vendor not found' 
+      });
+    }
 
     const similarVendors = await Vendor.find({ 
       vendorType: vendor.vendorType,
-      _id: { $ne: vendorId }
+      _id: { $ne: vendorId },
+      isVerified: true,
+      isApproved: true
+    }).limit(10);
 
-     });
-
-    res.status(200).json({ similarVendors });
+    res.status(200).json({ 
+      success: true,
+      similarVendors,
+      count: similarVendors.length
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error in getSimilarVendors:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      error: error.message 
+    });
   }
 };
 

@@ -138,8 +138,8 @@ router.post('/addservicesPackage', VerifyAdminOrVendor,addServicesPackage);
 // Get all service packages for all vendors (Admin)
 router.get('/allservicesPackageList', VerifyAdminOrVendor,getAllServicesPackages);
 
-// Get all service packages for a specific vendor
-router.get('/vendorservicesPackageList/:vendorId', VerifyAdminOrVendor, getVendorServicesPackages);
+// Get all service packages for a specific vendor (public endpoint)
+router.get('/vendorservicesPackageList/:vendorId', getVendorServicesPackages);
 
 // Update a service package
 router.put('/updateservicesPackage/:packageId', VerifyAdminOrVendor,updateServicePackages);
@@ -250,10 +250,88 @@ router.get('/getlatestvendorType', getlatestVendorTypeData);
 // Delete a pricing list item for a vendor
 router.delete("/:vendorId/pricing/:pricingId", VerifyAdminOrVendor, deletePricingList);
 
-// Get a list of similar vendors
-router.get('/getSimilarVendors/:vendorId', VerifyAdminOrVendor, getSimilarVendors);
+// Get a list of similar vendors (public endpoint)
+router.get('/getSimilarVendors/:vendorId', getSimilarVendors);
 
 // Search for vendors by city
 router.get("/Vendor/:city", VerifyAdminOrVendor, VendorsByCity);
+
+// SEO-friendly vendor URL (must be last to avoid conflicts)
+router.get('/location/:city/:type/:slug', async (req, res) => {
+  try {
+    const { city, type, slug } = req.params;
+    const businessType = 'venue'; // Hardcoded for this route
+    
+    // Improved slug parsing
+    const inIndex = slug.lastIndexOf('-in-');
+    const businessName = inIndex > -1 ? slug.substring(0, inIndex).replace(/-/g, ' ') : slug.replace(/-/g, ' ');
+    const nearLocation = inIndex > -1 ? slug.substring(inIndex + 4).replace(/-/g, ' ') : '';
+
+    console.log('Parsed SEO URL values:', { city, businessType, type, businessName, nearLocation });
+
+    const searchQuery = {
+      city: new RegExp(city.replace(/-/g, ' '), 'i'),
+      businessType: businessType,
+      businessName: new RegExp(businessName, 'i')
+    };
+
+    if (businessType === 'vendor') {
+      searchQuery.vendorType = new RegExp(type.replace(/-/g, ' '), 'i');
+    } else {
+      searchQuery.venueType = new RegExp(type.replace(/-/g, ' '), 'i');
+    }
+
+    console.log('Search query:', searchQuery);
+
+    const vendor = await Vendor.findOne(searchQuery);
+
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+
+    res.json({ success: true, vendor });
+  } catch (error) {
+    console.error('SEO URL error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.get('/:businessType/:city/:type/:slug', async (req, res) => {
+  try {
+    const { businessType, city, type, slug } = req.params;
+    
+    // Improved slug parsing
+    const inIndex = slug.lastIndexOf('-in-');
+    const businessName = inIndex > -1 ? slug.substring(0, inIndex).replace(/-/g, ' ') : slug.replace(/-/g, ' ');
+    const nearLocation = inIndex > -1 ? slug.substring(inIndex + 4).replace(/-/g, ' ') : '';
+    
+    console.log('Parsed SEO URL values:', { city, businessType, type, businessName, nearLocation });
+    
+    const searchQuery = {
+      city: new RegExp(city.replace(/-/g, ' '), 'i'),
+      businessType: businessType,
+      businessName: new RegExp(businessName, 'i')
+    };
+    
+    if (businessType === 'vendor') {
+      searchQuery.vendorType = new RegExp(type.replace(/-/g, ' '), 'i');
+    } else {
+      searchQuery.venueType = new RegExp(type.replace(/-/g, ' '), 'i');
+    }
+    
+    console.log('Search query:', searchQuery);
+    
+    const vendor = await Vendor.findOne(searchQuery);
+    
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: 'Vendor not found' });
+    }
+    
+    res.json({ success: true, vendor });
+  } catch (error) {
+    console.error('SEO URL error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
 export default router;
