@@ -35,6 +35,7 @@ import { logger, stream } from './utils/logger.js';
 import { cacheMiddleware } from './middlewares/cache.js';
 import inquiryRoutes from './routes/inquiryRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
+import locationRoutes from './routes/locationRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -298,6 +299,7 @@ app.use('/api/v1/events', eventRoutes);
 app.use('/api/v1/inquiries', inquiryRoutes);
 app.use('/api/v1/reviews', reviewRoutes);
 app.use('/api/v1/upload', uploadRoutes);
+app.use('/api', locationRoutes);
 
 // Error Handling Middleware (should be last)
 app.use(errorHandler);
