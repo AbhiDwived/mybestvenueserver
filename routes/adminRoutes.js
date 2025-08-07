@@ -23,6 +23,7 @@ import {
 import { createVendorByAdmin } from '../controllers/vendorController.js';
 import { VerifyAdmin } from '../middlewares/authMiddleware.js';
 import upload from '../middlewares/upload.js';
+import { uploadToStorage } from '../middlewares/imageKitUpload.js';
 
 const router = express.Router();
 
@@ -43,7 +44,17 @@ router.get('/latest_vendors_by_type', getLatestVendorsByType); //  Get latest ve
 router.get('/pending_vendor', VerifyAdmin, getPendingVendors); //  Get all vendors pending approval (admin only)
 router.put('/approve/:vendorId', VerifyAdmin, approveVendor); //  Approve a vendor by ID (admin only)
 router.delete('/delete-vendor/:vendorId', VerifyAdmin, deleteVendorByAdmin); //  Delete a vendor by ID (admin only)
-router.post('/create-vendor', VerifyAdmin, upload.single('profilePicture'), createVendorByAdmin); //  Admin creates a new vendor with profile picture
+router.post(
+  '/create-vendor',
+  VerifyAdmin,
+  upload.single('profilePicture'),
+  (req, res, next) => {
+    req.imagePath = 'vendor-profiles'; // Set the folder for uploads
+    next();
+  },
+  uploadToStorage,
+  createVendorByAdmin
+); //  Admin creates a new vendor with profile picture
 
 // User management routes (admin only)
 router.get('/all_users', VerifyAdmin, getAllUsers); //  Get all users (admin only)

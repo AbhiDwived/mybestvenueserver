@@ -54,8 +54,8 @@ export const createVendorByAdmin = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
     
-    // Use the uploaded profile picture URL from S3/ImageKit
-    let profilePicture = profilePictureUrl || null;
+    // Use the uploaded profile picture URL from S3/ImageKit, prioritizing the uploaded file
+    let profilePicture = req.fileUrl || profilePictureUrl || null;
 
     const vendorData = {
       businessName,

@@ -47,7 +47,6 @@ export const uploadToS3 = async (req, res, next) => {
             Key: key,
             Body: req.file.buffer,
             ContentType: req.file.mimetype
-            // Removed ACL: 'public-read' as the bucket doesn't allow ACLs
         };
 
         const command = new PutObjectCommand(params);
