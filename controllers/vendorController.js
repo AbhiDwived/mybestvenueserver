@@ -1652,18 +1652,25 @@ export const deletePortfolioVideo = async (req, res) => {
 export const getlatestVendorTypeData = async (req, res) => {
   try {
     const data = await Vendor.aggregate([
-      
+      // Sort by creation date to get the latest records first
       { $sort: { createdAt: -1 } },
+      
+      // Add a field to unify vendorType and venueType
+      {
+        $addFields: {
+          displayType: { $ifNull: ["$vendorType", "$venueType"] }
+        }
+      },
 
-     
+      // Group by the unified displayType to get the latest for each type
       {
         $group: {
-          _id: "$vendorType",
+          _id: "$displayType",
           latestRecord: { $first: "$$ROOT" }
         }
       },
 
-     
+      // Replace the root to promote the latest record
       {
         $replaceRoot: { newRoot: "$latestRecord" }
       }
@@ -1674,7 +1681,7 @@ export const getlatestVendorTypeData = async (req, res) => {
       data
     });
   } catch (error) {
-    console.error('Error fetching latest vendorType data:', error);
+    console.error('Error fetching latest vendor/venue data:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
