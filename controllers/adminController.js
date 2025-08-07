@@ -323,7 +323,11 @@ export const getAllVendors = async (req, res) => {
       galleryImages: vendor.galleryImages || [],
       isApproved: vendor.isApproved,
       appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
-      createdAt: vendor.createdAt
+      createdAt: vendor.createdAt,
+      city: vendor.city,
+      location: vendor.location,
+      displayLocation: vendor.displayLocation,
+      nearLocation: vendor.nearLocation
     }));
 
     res.status(200).json({
@@ -598,4 +602,3 @@ export const getRidesByVendor = async (req, res) => {
     res.status(500).json({ message: 'Error fetching vendor rides', error: error.message });
   }
 };
-
