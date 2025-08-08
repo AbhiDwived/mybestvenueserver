@@ -273,56 +273,88 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
     
     console.log('Parsed SEO URL values:', { city, businessType, type, businessName, nearLocation });
 
-    // Build flexible search query
+    // Build more precise search query
     const searchQuery = {
       businessType: businessType,
       isVerified: true,
       isApproved: true
     };
 
-    // Add flexible city matching
-    const cityRegex = new RegExp(city.replace(/-/g, ' ').replace(/\s+/g, '\\s*'), 'i');
+    // Add city matching - be more specific
+    const cityName = city.replace(/-/g, ' ');
     searchQuery.$or = [
-      { city: cityRegex },
-      { serviceAreas: { $in: [new RegExp(city.replace(/-/g, ' '), 'i')] } }
+      { city: { $regex: cityName, $options: 'i' } },
+      { serviceAreas: { $in: [new RegExp(cityName, 'i')] } }
     ];
 
-    // Add flexible business name matching
+    // Add more precise business name matching
     if (businessName) {
-      searchQuery.businessName = new RegExp(businessName.replace(/[^a-z0-9\s]/gi, ''), 'i');
+      // Try exact match first
+      searchQuery.businessName = { $regex: `^${businessName}$`, $options: 'i' };
     }
 
     // Add type matching
-    if (businessType === 'vendor') {
-      searchQuery.vendorType = new RegExp(type.replace(/-/g, ' '), 'i');
-    } else {
-      searchQuery.venueType = new RegExp(type.replace(/-/g, ' '), 'i');
-    }
+    searchQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
 
-    console.log('Enhanced search query:', JSON.stringify(searchQuery, null, 2));
+    console.log('Precise search query:', JSON.stringify(searchQuery, null, 2));
 
     // Try exact match first
     let vendor = await Vendor.findOne(searchQuery);
 
-    // If no exact match, try broader search
+    // If no exact match, try partial business name match
     if (!vendor) {
-      console.log('No exact match found, trying broader search...');
+      console.log('No exact match found, trying partial business name match...');
+      
+      const partialQuery = {
+        businessType: businessType,
+        isVerified: true,
+        isApproved: true,
+        $or: [
+          { city: { $regex: cityName, $options: 'i' } },
+          { serviceAreas: { $in: [new RegExp(cityName, 'i')] } }
+        ]
+      };
+
+      // Try to match business name more precisely
+      if (businessName) {
+        // Split business name into words and try to match each word
+        const businessNameWords = businessName.split(' ').filter(word => word.length > 2);
+        if (businessNameWords.length > 0) {
+          const nameRegex = businessNameWords.map(word => `(?=.*${word})`).join('');
+          partialQuery.businessName = { $regex: nameRegex, $options: 'i' };
+        } else {
+          partialQuery.businessName = { $regex: businessName, $options: 'i' };
+        }
+      }
+
+      partialQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
+
+      vendor = await Vendor.findOne(partialQuery);
+    }
+
+    // If still no match, try broader search but with better ranking
+    if (!vendor) {
+      console.log('No partial match found, trying broader search...');
       
       const broadQuery = {
         businessType: businessType,
         isVerified: true,
         isApproved: true,
         $or: [
-          { businessName: new RegExp(businessName.split(' ')[0], 'i') },
-          { city: new RegExp(city.split('-')[0], 'i') }
+          { city: { $regex: cityName.split(' ')[0], $options: 'i' } },
+          { serviceAreas: { $in: [new RegExp(cityName.split(' ')[0], 'i')] } }
         ]
       };
 
-      if (businessType === 'vendor') {
-        broadQuery.vendorType = new RegExp(type.replace(/-/g, ' '), 'i');
-      } else {
-        broadQuery.venueType = new RegExp(type.replace(/-/g, ' '), 'i');
+      if (businessName) {
+        // Try to match at least the first word of business name
+        const firstWord = businessName.split(' ')[0];
+        if (firstWord.length > 2) {
+          broadQuery.businessName = { $regex: firstWord, $options: 'i' };
+        }
       }
+
+      broadQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
 
       vendor = await Vendor.findOne(broadQuery);
     }
@@ -334,8 +366,8 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
         isVerified: true,
         isApproved: true,
         $or: [
-          { city: new RegExp(city.split('-')[0], 'i') },
-          { venueType: new RegExp(type.replace(/-/g, ' '), 'i') }
+          { city: { $regex: cityName.split(' ')[0], $options: 'i' } },
+          { venueType: { $regex: type.replace(/-/g, ' '), $options: 'i' } }
         ]
       }).limit(5);
 
@@ -374,55 +406,99 @@ router.get('/:businessType/:city/:type/:slug', async (req, res) => {
     
     console.log('Parsed SEO URL values:', { city, businessType, type, businessName, nearLocation });
     
-    // Build flexible search query
+    // Build more precise search query
     const searchQuery = {
       businessType: businessType,
       isVerified: true,
       isApproved: true
     };
 
-    // Add flexible city matching
-    const cityRegex = new RegExp(city.replace(/-/g, ' ').replace(/\s+/g, '\\s*'), 'i');
+    // Add city matching - be more specific
+    const cityName = city.replace(/-/g, ' ');
     searchQuery.$or = [
-      { city: cityRegex },
-      { serviceAreas: { $in: [new RegExp(city.replace(/-/g, ' '), 'i')] } }
+      { city: { $regex: cityName, $options: 'i' } },
+      { serviceAreas: { $in: [new RegExp(cityName, 'i')] } }
     ];
 
-    // Add flexible business name matching
+    // Add more precise business name matching
     if (businessName) {
-      searchQuery.businessName = new RegExp(businessName.replace(/[^a-z0-9\s]/gi, ''), 'i');
+      // Try exact match first
+      searchQuery.businessName = { $regex: `^${businessName}$`, $options: 'i' };
     }
 
     // Add type matching
     if (businessType === 'vendor') {
-      searchQuery.vendorType = new RegExp(type.replace(/-/g, ' '), 'i');
+      searchQuery.vendorType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
     } else {
-      searchQuery.venueType = new RegExp(type.replace(/-/g, ' '), 'i');
+      searchQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
     }
     
-    console.log('Enhanced search query:', JSON.stringify(searchQuery, null, 2));
+    console.log('Precise search query:', JSON.stringify(searchQuery, null, 2));
     
     // Try exact match first
     let vendor = await Vendor.findOne(searchQuery);
 
-    // If no exact match, try broader search
+    // If no exact match, try partial business name match
     if (!vendor) {
-      console.log('No exact match found, trying broader search...');
+      console.log('No exact match found, trying partial business name match...');
+      
+      const partialQuery = {
+        businessType: businessType,
+        isVerified: true,
+        isApproved: true,
+        $or: [
+          { city: { $regex: cityName, $options: 'i' } },
+          { serviceAreas: { $in: [new RegExp(cityName, 'i')] } }
+        ]
+      };
+
+      // Try to match business name more precisely
+      if (businessName) {
+        // Split business name into words and try to match each word
+        const businessNameWords = businessName.split(' ').filter(word => word.length > 2);
+        if (businessNameWords.length > 0) {
+          const nameRegex = businessNameWords.map(word => `(?=.*${word})`).join('');
+          partialQuery.businessName = { $regex: nameRegex, $options: 'i' };
+        } else {
+          partialQuery.businessName = { $regex: businessName, $options: 'i' };
+        }
+      }
+
+      if (businessType === 'vendor') {
+        partialQuery.vendorType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
+      } else {
+        partialQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
+      }
+
+      vendor = await Vendor.findOne(partialQuery);
+    }
+
+    // If still no match, try broader search but with better ranking
+    if (!vendor) {
+      console.log('No partial match found, trying broader search...');
       
       const broadQuery = {
         businessType: businessType,
         isVerified: true,
         isApproved: true,
         $or: [
-          { businessName: new RegExp(businessName.split(' ')[0], 'i') },
-          { city: new RegExp(city.split('-')[0], 'i') }
+          { city: { $regex: cityName.split(' ')[0], $options: 'i' } },
+          { serviceAreas: { $in: [new RegExp(cityName.split(' ')[0], 'i')] } }
         ]
       };
 
+      if (businessName) {
+        // Try to match at least the first word of business name
+        const firstWord = businessName.split(' ')[0];
+        if (firstWord.length > 2) {
+          broadQuery.businessName = { $regex: firstWord, $options: 'i' };
+        }
+      }
+
       if (businessType === 'vendor') {
-        broadQuery.vendorType = new RegExp(type.replace(/-/g, ' '), 'i');
+        broadQuery.vendorType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
       } else {
-        broadQuery.venueType = new RegExp(type.replace(/-/g, ' '), 'i');
+        broadQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
       }
 
       vendor = await Vendor.findOne(broadQuery);
@@ -435,8 +511,8 @@ router.get('/:businessType/:city/:type/:slug', async (req, res) => {
         isVerified: true,
         isApproved: true,
         $or: [
-          { city: new RegExp(city.split('-')[0], 'i') },
-          { venueType: new RegExp(type.replace(/-/g, ' '), 'i') }
+          { city: { $regex: cityName.split(' ')[0], $options: 'i' } },
+          { venueType: { $regex: type.replace(/-/g, ' '), $options: 'i' } }
         ]
       }).limit(5);
 
