@@ -15,12 +15,12 @@ export async function generateSitemap(hostname) {
     const staticRoutes = [
       // Main Pages
       { url: '/', changefreq: 'daily', priority: 1.0 },
-      { url: '/about', changefreq: 'weekly', priority: 0.8 },
+      { url: '/about-us', changefreq: 'weekly', priority: 0.8 },
       { url: '/terms', changefreq: 'monthly', priority: 0.5 },
       
       // Wedding Vendors
-      { url: '/wedding-vendor', changefreq: 'weekly', priority: 0.9 },
-      { url: '/Cakes', changefreq: 'weekly', priority: 0.7 },
+      { url: '/vendor', changefreq: 'weekly', priority: 0.9 },
+      { url: '/cakes', changefreq: 'weekly', priority: 0.7 },
       { url: '/caterers', changefreq: 'weekly', priority: 0.7 },
       { url: '/choreographers', changefreq: 'weekly', priority: 0.7 },
       { url: '/photographers', changefreq: 'weekly', priority: 0.7 },
@@ -29,13 +29,13 @@ export async function generateSitemap(hostname) {
       { url: '/planners', changefreq: 'weekly', priority: 0.7 },
 
       // Wedding Venues
-      { url: '/wedding-venues ', changefreq: 'weekly', priority: 0.9 },
-      { url: '/wedding-venues _city', changefreq: 'weekly', priority: 0.8 },
+      { url: '/venues ', changefreq: 'weekly', priority: 0.9 },
+      { url: '/venues _city', changefreq: 'weekly', priority: 0.8 },
 
       // Corporate
       { url: '/corporate', changefreq: 'monthly', priority: 0.6 },
       { url: '/conference', changefreq: 'monthly', priority: 0.6 },
-      { url: '/contactUs', changefreq: 'monthly', priority: 0.6 },
+      { url: '/contact-us  ', changefreq: 'monthly', priority: 0.6 },
 
       // Blogs and Ideas
       { url: '/Blog', changefreq: 'weekly', priority: 0.7 },

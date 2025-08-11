@@ -196,10 +196,28 @@ export const registerVendor = async (req, res) => {
     // Handle serviceAreas and address separately to ensure proper parsing
     if (req.body.serviceAreas) {
       try {
-        newVendor.serviceAreas = typeof req.body.serviceAreas === 'string' ? JSON.parse(req.body.serviceAreas) : req.body.serviceAreas;
+        // Accept JSON string or array directly; also handle comma-separated string
+        if (typeof req.body.serviceAreas === 'string') {
+          const trimmed = req.body.serviceAreas.trim();
+          if (trimmed.startsWith('[')) {
+            newVendor.serviceAreas = JSON.parse(trimmed);
+          } else if (trimmed.includes(',')) {
+            newVendor.serviceAreas = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+          } else {
+            newVendor.serviceAreas = [trimmed];
+          }
+        } else if (Array.isArray(req.body.serviceAreas)) {
+          newVendor.serviceAreas = req.body.serviceAreas.filter(Boolean);
+        }
       } catch (error) {
         console.error('Error parsing serviceAreas:', error);
         newVendor.serviceAreas = Array.isArray(req.body.serviceAreas) ? req.body.serviceAreas : [req.body.serviceAreas];
+      }
+      // Clean: remove empty items and accidental bracket remnants
+      if (Array.isArray(newVendor.serviceAreas)) {
+        newVendor.serviceAreas = newVendor.serviceAreas
+          .map(area => typeof area === 'string' ? area.replace(/^\["?/, '').replace(/"?\]$/, '').trim() : area)
+          .filter(area => typeof area === 'string' ? area.length > 0 : !!area);
       }
     }
 
@@ -212,6 +230,9 @@ export const registerVendor = async (req, res) => {
       newVendor.address = req.body.address || '';
       newVendor.nearLocation = req.body.nearLocation || '';
     }
+
+    // Fix termsAccepted to use frontend value if provided
+    newVendor.termsAccepted = req.body.termsAccepted === "true" || req.body.termsAccepted === true;
 
     // Prepare vendor data for temporary storage
     const tempVendorData = {
@@ -233,13 +254,29 @@ export const registerVendor = async (req, res) => {
       tempVendorData.venueType = venueType;
     }
 
-    // Handle serviceAreas and address separately to ensure proper parsing
+    // Handle serviceAreas for temp data as well (same logic)
     if (req.body.serviceAreas) {
       try {
-        tempVendorData.serviceAreas = typeof req.body.serviceAreas === 'string' ? JSON.parse(req.body.serviceAreas) : req.body.serviceAreas;
+        if (typeof req.body.serviceAreas === 'string') {
+          const trimmed = req.body.serviceAreas.trim();
+          if (trimmed.startsWith('[')) {
+            tempVendorData.serviceAreas = JSON.parse(trimmed);
+          } else if (trimmed.includes(',')) {
+            tempVendorData.serviceAreas = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+          } else {
+            tempVendorData.serviceAreas = [trimmed];
+          }
+        } else if (Array.isArray(req.body.serviceAreas)) {
+          tempVendorData.serviceAreas = req.body.serviceAreas.filter(Boolean);
+        }
       } catch (error) {
         console.error('Error parsing serviceAreas:', error);
         tempVendorData.serviceAreas = Array.isArray(req.body.serviceAreas) ? req.body.serviceAreas : [req.body.serviceAreas];
+      }
+      if (Array.isArray(tempVendorData.serviceAreas)) {
+        tempVendorData.serviceAreas = tempVendorData.serviceAreas
+          .map(area => typeof area === 'string' ? area.replace(/^\["?/, '').replace(/"?\]$/, '').trim() : area)
+          .filter(area => typeof area === 'string' ? area.length > 0 : !!area);
       }
     }
 
@@ -651,6 +688,33 @@ export const updateVendorProfile = async (req, res) => {
       if (validPricing.length > 0) {
         updateData.pricing = validPricing;
         console.log('✅ Setting valid pricing:', validPricing);
+      }
+    }
+
+    // Normalize serviceAreas if provided
+    if (req.body.serviceAreas !== undefined) {
+      try {
+        if (typeof req.body.serviceAreas === 'string') {
+          const trimmed = req.body.serviceAreas.trim();
+          if (trimmed.startsWith('[')) {
+            updateData.serviceAreas = JSON.parse(trimmed);
+          } else if (trimmed.includes(',')) {
+            updateData.serviceAreas = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+          } else if (trimmed.length > 0) {
+            updateData.serviceAreas = [trimmed];
+          } else {
+            updateData.serviceAreas = [];
+          }
+        } else if (Array.isArray(req.body.serviceAreas)) {
+          updateData.serviceAreas = req.body.serviceAreas.filter(Boolean);
+        }
+      } catch (e) {
+        console.log('❌ Failed to parse serviceAreas on update, keeping raw:', req.body.serviceAreas);
+      }
+      if (Array.isArray(updateData.serviceAreas)) {
+        updateData.serviceAreas = updateData.serviceAreas
+          .map(area => typeof area === 'string' ? area.replace(/^\[\"?/, '').replace(/\"?\]$/, '').trim() : area)
+          .filter(area => typeof area === 'string' ? area.length > 0 : !!area);
       }
     }
 
