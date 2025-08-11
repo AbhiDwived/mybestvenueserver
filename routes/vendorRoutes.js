@@ -256,7 +256,7 @@ router.get('/getSimilarVendors/:vendorId', getSimilarVendors);
 // Search for vendors by city
 router.get("/Vendor/:city", VerifyAdminOrVendor, VendorsByCity);
 
-// SEO-friendly vendor URL (must be last to avoid conflicts)
+// SEO-friendly vendor URL (venue-only variant; must be before the generic one)
 router.get('/location/:city/:type/:slug', async (req, res) => {
   try {
     const { city, type, slug } = req.params;
@@ -267,44 +267,46 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
     let businessName = inIndex > -1 ? slug.substring(0, inIndex).replace(/-/g, ' ') : slug.replace(/-/g, ' ');
     let nearLocation = inIndex > -1 ? slug.substring(inIndex + 4).replace(/-/g, ' ') : '';
     
-    // Clean up the names
-    businessName = businessName.trim();
-    nearLocation = nearLocation.trim();
+    // Normalize and trim
+    businessName = businessName.replace(/\s+/g, ' ').trim();
+    nearLocation = nearLocation.replace(/\s+/g, ' ').trim();
     
     console.log('Parsed SEO URL values:', { city, businessType, type, businessName, nearLocation });
 
-    // Build more precise search query
+    // Build precise search query
     const searchQuery = {
       businessType: businessType,
       isVerified: true,
       isApproved: true
     };
 
-    // Add city matching - be more specific
     const cityName = city.replace(/-/g, ' ');
     searchQuery.$or = [
       { city: { $regex: cityName, $options: 'i' } },
       { serviceAreas: { $in: [new RegExp(cityName, 'i')] } }
     ];
 
-    // Add more precise business name matching
     if (businessName) {
-      // Try exact match first
       searchQuery.businessName = { $regex: `^${businessName}$`, $options: 'i' };
     }
 
-    // Add type matching
     searchQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
+
+    if (nearLocation) {
+      searchQuery.$and = [{
+        $or: [
+          { nearLocation: { $regex: `^${nearLocation}$`, $options: 'i' } },
+          { address: { $regex: nearLocation, $options: 'i' } }
+        ]
+      }];
+    }
 
     console.log('Precise search query:', JSON.stringify(searchQuery, null, 2));
 
-    // Try exact match first
     let vendor = await Vendor.findOne(searchQuery);
 
-    // If no exact match, try partial business name match
     if (!vendor) {
       console.log('No exact match found, trying partial business name match...');
-      
       const partialQuery = {
         businessType: businessType,
         isVerified: true,
@@ -312,12 +314,11 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
         $or: [
           { city: { $regex: cityName, $options: 'i' } },
           { serviceAreas: { $in: [new RegExp(cityName, 'i')] } }
-        ]
+        ],
+        venueType: { $regex: type.replace(/-/g, ' '), $options: 'i' }
       };
 
-      // Try to match business name more precisely
       if (businessName) {
-        // Split business name into words and try to match each word
         const businessNameWords = businessName.split(' ').filter(word => word.length > 2);
         if (businessNameWords.length > 0) {
           const nameRegex = businessNameWords.map(word => `(?=.*${word})`).join('');
@@ -327,15 +328,20 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
         }
       }
 
-      partialQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
+      if (nearLocation) {
+        partialQuery.$and = [{
+          $or: [
+            { nearLocation: { $regex: nearLocation, $options: 'i' } },
+            { address: { $regex: nearLocation, $options: 'i' } }
+          ]
+        }];
+      }
 
       vendor = await Vendor.findOne(partialQuery);
     }
 
-    // If still no match, try broader search but with better ranking
     if (!vendor) {
       console.log('No partial match found, trying broader search...');
-      
       const broadQuery = {
         businessType: businessType,
         isVerified: true,
@@ -343,24 +349,25 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
         $or: [
           { city: { $regex: cityName.split(' ')[0], $options: 'i' } },
           { serviceAreas: { $in: [new RegExp(cityName.split(' ')[0], 'i')] } }
-        ]
+        ],
+        venueType: { $regex: type.replace(/-/g, ' '), $options: 'i' }
       };
 
       if (businessName) {
-        // Try to match at least the first word of business name
         const firstWord = businessName.split(' ')[0];
         if (firstWord.length > 2) {
           broadQuery.businessName = { $regex: firstWord, $options: 'i' };
         }
       }
 
-      broadQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
+      if (nearLocation) {
+        broadQuery.$or.push({ nearLocation: { $regex: nearLocation.split(' ')[0], $options: 'i' } });
+      }
 
       vendor = await Vendor.findOne(broadQuery);
     }
 
     if (!vendor) {
-      // Find similar vendors for suggestions
       const similarVendors = await Vendor.find({
         businessType: businessType,
         isVerified: true,
@@ -391,6 +398,7 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
   }
 });
 
+// Generic SEO URL (supports both vendor and venue)
 router.get('/:businessType/:city/:type/:slug', async (req, res) => {
   try {
     const { businessType, city, type, slug } = req.params;
@@ -400,9 +408,9 @@ router.get('/:businessType/:city/:type/:slug', async (req, res) => {
     let businessName = inIndex > -1 ? slug.substring(0, inIndex).replace(/-/g, ' ') : slug.replace(/-/g, ' ');
     let nearLocation = inIndex > -1 ? slug.substring(inIndex + 4).replace(/-/g, ' ') : '';
     
-    // Clean up the names
-    businessName = businessName.trim();
-    nearLocation = nearLocation.trim();
+    // Normalize and trim
+    businessName = businessName.replace(/\s+/g, ' ').trim();
+    nearLocation = nearLocation.replace(/\s+/g, ' ').trim();
     
     console.log('Parsed SEO URL values:', { city, businessType, type, businessName, nearLocation });
     
@@ -432,13 +440,23 @@ router.get('/:businessType/:city/:type/:slug', async (req, res) => {
     } else {
       searchQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
     }
+
+    // If nearLocation is present in slug, require it to match as well
+    if (nearLocation) {
+      searchQuery.$and = [{
+        $or: [
+          { nearLocation: { $regex: `^${nearLocation}$`, $options: 'i' } },
+          { address: { $regex: nearLocation, $options: 'i' } }
+        ]
+      }];
+    }
     
     console.log('Precise search query:', JSON.stringify(searchQuery, null, 2));
     
     // Try exact match first
     let vendor = await Vendor.findOne(searchQuery);
 
-    // If no exact match, try partial business name match
+    // If no exact match, try partial business name match, honoring nearLocation
     if (!vendor) {
       console.log('No exact match found, trying partial business name match...');
       
@@ -470,10 +488,19 @@ router.get('/:businessType/:city/:type/:slug', async (req, res) => {
         partialQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
       }
 
+      if (nearLocation) {
+        partialQuery.$and = [{
+          $or: [
+            { nearLocation: { $regex: nearLocation, $options: 'i' } },
+            { address: { $regex: nearLocation, $options: 'i' } }
+          ]
+        }];
+      }
+
       vendor = await Vendor.findOne(partialQuery);
     }
 
-    // If still no match, try broader search but with better ranking
+    // If still no match, try broader search but with better ranking, prefer nearLocation
     if (!vendor) {
       console.log('No partial match found, trying broader search...');
       
@@ -499,6 +526,10 @@ router.get('/:businessType/:city/:type/:slug', async (req, res) => {
         broadQuery.vendorType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
       } else {
         broadQuery.venueType = { $regex: type.replace(/-/g, ' '), $options: 'i' };
+      }
+
+      if (nearLocation) {
+        broadQuery.$or.push({ nearLocation: { $regex: nearLocation.split(' ')[0], $options: 'i' } });
       }
 
       vendor = await Vendor.findOne(broadQuery);
