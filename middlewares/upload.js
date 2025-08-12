@@ -22,10 +22,10 @@ const fileFilter = (req, file, cb) => {
         mimetype: file.mimetype,
         size: file.size
     });
-    
+
     const allowedTypes = [
         'image/jpeg',
-        'image/jpg', 
+        'image/jpg',
         'image/png',
         'image/gif',
         'image/webp',
@@ -38,7 +38,7 @@ const fileFilter = (req, file, cb) => {
         'image/heic',
         'image/heif'
     ];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
         console.log('✅ File type accepted:', file.mimetype);
         cb(null, true);
@@ -74,7 +74,7 @@ export const uploadToS3 = async (req, res, next) => {
         const timestamp = Date.now();
         const fileExtension = path.extname(req.file.originalname);
         const fileName = `${timestamp}-${req.file.originalname.replace(fileExtension, '')}${fileExtension}`;
-        
+
         //  Use provided folder path or default to 'uploads'
         const folderPath = req.imagePath || 'uploads';
         const key = `${folderPath}/${fileName}`;
@@ -95,7 +95,7 @@ export const uploadToS3 = async (req, res, next) => {
         const s3Url = `https://${S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
         req.fileUrl = s3Url;
         req.fileKey = key; // Store the key for potential deletion later
-        
+
         next();
     } catch (error) {
         console.error('S3 Upload Error:', error);
@@ -124,7 +124,7 @@ export const uploadToImageKit = async (req, res, next) => {
         //  Attach ImageKit URL and fileId to request for downstream use
         req.fileUrl = response.url;
         req.fileId = response.fileId; // Store the fileId for potential deletion later
-        
+
         next();
     } catch (error) {
         console.error('ImageKit Upload Error:', error);
@@ -139,14 +139,14 @@ export const uploadToStorage = async (req, res, next) => {
             //  Skip upload if no file present
             return next();
         }
-        
+
         //  Use S3 or ImageKit based on configuration
         if (STORAGE_TYPE === 's3') {
-            await uploadToS3(req, res, () => {});
+            await uploadToS3(req, res, () => { });
         } else {
-            await uploadToImageKit(req, res, () => {});
+            await uploadToImageKit(req, res, () => { });
         }
-        
+
         next();
     } catch (error) {
         console.error('Storage Upload Error:', error);
