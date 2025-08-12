@@ -14,34 +14,49 @@ const STORAGE_TYPE = process.env.STORAGE_TYPE || 'imagekit';
 // Configure multer to use memory storage for ImageKit
 const storage = multer.memoryStorage();
 
-// File filter to allow only JPEG and PNG images
+// File filter to allow all supported image formats
 const fileFilter = (req, file, cb) => {
-    //  Log file details for debugging and only allow JPEG/PNG
+    //  Log file details for debugging
     console.log('📄 File filter check:', {
         originalname: file.originalname,
         mimetype: file.mimetype,
         size: file.size
     });
     
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    const allowedTypes = [
+        'image/jpeg',
+        'image/jpg', 
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'image/avif',
+        'image/svg+xml',
+        'image/x-icon',
+        'image/vnd.microsoft.icon',
+        'image/bmp',
+        'image/apng',
+        'image/heic',
+        'image/heif'
+    ];
+    
     if (allowedTypes.includes(file.mimetype)) {
         console.log('✅ File type accepted:', file.mimetype);
         cb(null, true);
     } else {
         console.log('❌ File type rejected:', file.mimetype);
-        cb(new Error('Only JPEG and PNG images are allowed'), false);
+        cb(new Error('Unsupported image format. Supported formats: JPEG, PNG, GIF, WebP, AVIF, SVG, ICO, BMP, APNG, HEIC'), false);
     }
 };
 
-// Configure upload
+// Configure upload with support for all image formats
 const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
     limits: {
-        fileSize: 10 * 1024 * 1024 //  10MB file size limit
+        fileSize: 10 * 1024 * 1024 // 10MB file size limit for all image formats
     },
     onError: (err, next) => {
-        //  Handle Multer errors and pass to next middleware
+        // Handle Multer errors and pass to next middleware
         console.error('❌ Multer error:', err);
         next(err);
     }
