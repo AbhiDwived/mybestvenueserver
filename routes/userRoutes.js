@@ -6,7 +6,6 @@ import {
   login,
   updateProfile,
   deleteUser,
-  forgotPassword,
   verifyPasswordReset,
   resetPassword,
   resendPasswordResetOtp,
@@ -35,6 +34,7 @@ import { validate, userValidation, contactValidation } from '../middlewares/vali
 import { verifyToken } from "../middlewares/authMiddleware.js";
 import { verifyRole } from "../middlewares/roleMiddleware.js";
 import { protect } from '../middlewares/authMiddleware.js';
+import { forgotPassword } from '../controllers/authController.js';
 
 const router = express.Router();
 

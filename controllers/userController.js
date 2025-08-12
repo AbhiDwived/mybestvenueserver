@@ -179,49 +179,7 @@ export const resendOtp = async (req, res) => {
   }
 };
 
-// Forgot password: send OTP
-export const forgotPassword = async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    //  Generate OTP and expiry for password reset
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = Date.now() + 10 * 60 * 1000;
-
-    user.otp = otp;
-    user.otpExpires = otpExpires;
-
-    user.markModified("otp");
-    user.markModified("otpExpires");
-
-    await user.save();
-
-    // Send OTP via email
-    try {
-      const { sendEmail } = await import('../utils/sendEmail.js');
-      await sendEmail({
-        email: user.email,
-        subject: "Your Password Reset OTP",
-        message: `Your OTP is: ${otp}\n\nThis OTP will expire in 10 minutes.`,
-      });
-    } catch (error) {
-      delete user.otp;
-      delete user.otpExpires;
-      await user.save();
-      return res.status(500).json({ message: "Failed to send OTP email" });
-    }
-
-    res.status(200).json({
-      message: "OTP sent to email",
-      userId: user._id,
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
+// Note: forgotPassword function moved to authController.js for centralized auth handling
 
 // Resend Password Reset OTP
 export const resendPasswordResetOtp = async (req, res) => {

@@ -1,22 +1,4 @@
-import nodemailer from 'nodemailer';
-
-// Create a reusable transporter object
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.mandrillapp.com',
-    port: parseInt(process.env.SMTP_PORT, 10) || 587,
-    secure: process.env.SMTP_SECURE === 'true', // false for port 587
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    },
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 5000,    // 5 seconds
-    socketTimeout: 10000,     // 10 seconds
-    logger: true,             // enable debug logger
-    debug: true               // enable debug mode
-  });
-};
+import transporter from './transporter.js';
 
 // Retry helper function
 const retry = async (fn, retries = 3, delay = 1000) => {
@@ -41,10 +23,7 @@ export const sendEmail = async ({ email, subject, message }) => {
     throw new Error('Invalid email format');
   }
 
-  let transporter;
   try {
-    transporter = createTransporter();
-
     console.log('Verifying SMTP connection...');
     await transporter.verify();
     console.log('SMTP connection verified.');
@@ -95,8 +74,6 @@ export const sendEmail = async ({ email, subject, message }) => {
 
     throw new Error(errorMessage);
   } finally {
-    if (transporter) {
-      transporter.close();
-    }
+    // The transporter is now managed centrally, so we don't close it here.
   }
 };

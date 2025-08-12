@@ -34,7 +34,6 @@ import {
   uploadPortfolioVideo,
   getPortfolioVideos,
   deletePortfolioVideo,
-  resendPasswordResetOtp,
   getlatestVendorTypeData,
   deletePricingList,
   deleteFaq,
@@ -47,7 +46,7 @@ import {
   // getStates,
   // getCities,
 } from '../controllers/vendorController.js';
-import { forgotPassword, verifyResetOtp, resetPassword } from '../controllers/authController.js';
+import { forgotPassword, verifyResetOtp, resetPassword, resendPasswordResetOtp } from '../controllers/authController.js';
 import Vendor from '../models/Vendor.js';
 
 const router = express.Router();
