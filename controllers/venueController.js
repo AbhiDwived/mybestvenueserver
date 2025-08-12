@@ -56,7 +56,18 @@ export const getApprovedVenues = async (req, res) => {
       .populate('category', 'name')
       .populate('vendor', 'businessName email');
 
-    res.status(200).json({ venues });
+    // Get unique cities for dropdown functionality
+    const uniqueCities = await Venue.distinct('location.city', { isApproved: true });
+    const filteredCities = uniqueCities.filter(city => city && city.trim() !== '').sort();
+
+    // Get unique categories for dropdown functionality
+    const categories = await Category.find({}, 'name');
+
+    res.status(200).json({
+      venues,
+      cities: filteredCities,
+      categories: categories.map(cat => cat.name)
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching venues', error: error.message });
   }
@@ -168,7 +179,7 @@ export const getFilteredVenues = async (req, res) => {
 
     //  Apply advanced filters for category, city, and price range
     if (category) filter.category = category;
-    if (city) filter.location = { $regex: new RegExp(city, 'i') };
+    if (city) filter['location.city'] = { $regex: new RegExp(city, 'i') };
     if (minPrice || maxPrice) {
       filter.priceRange = {};
       if (minPrice) filter.priceRange.$gte = Number(minPrice);
@@ -185,8 +196,13 @@ export const getFilteredVenues = async (req, res) => {
 
     const total = await Venue.countDocuments(filter);
 
+    // Collect unique cities from venues for dropdown
+    const uniqueCities = await Venue.distinct('location.city', { isApproved: true });
+    const filteredCities = uniqueCities.filter(city => city && city.trim() !== '').sort();
+
     res.status(200).json({
       venues,
+      cities: filteredCities,
       pagination: {
         total,
         page: Number(page),

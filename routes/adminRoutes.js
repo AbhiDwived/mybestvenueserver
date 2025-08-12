@@ -18,7 +18,8 @@ import {
   createRideByAdmin,
   updateRideByAdmin,
   deleteRideByAdmin,
-  getRidesByVendor
+  getRidesByVendor,
+  logoutAdmin
 } from '../controllers/adminController.js';
 import { createVendorByAdmin } from '../controllers/vendorController.js';
 import { VerifyAdmin } from '../middlewares/authMiddleware.js';
@@ -30,6 +31,7 @@ const router = express.Router();
 // Admin registration and login
 router.post('/register', registerAdmin); //  Register a new admin (OTP sent to email)
 router.post('/login', loginAdmin); //  Admin login, returns JWT if successful
+router.post('/logout', logoutAdmin); //  Admin logout
 
 // OTP verification for admin
 router.post('/admin_verify_otp', verifyAdminOtp); //  Verify OTP for admin registration

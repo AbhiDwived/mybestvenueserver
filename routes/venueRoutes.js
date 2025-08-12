@@ -5,6 +5,7 @@ import {
   getApprovedVenues,
   getVenueById,
   approveVenue,
+  getFilteredVenues,
 } from '../controllers/venueController.js';
 
 import { VerifyVendor, VerifyAdmin } from '../middlewares/authMiddleware.js';
@@ -13,6 +14,9 @@ const router = express.Router();
 
 // Get all approved venues
 router.get('/', getApprovedVenues);
+
+// Get filtered venues with pagination and sorting
+router.get('/filtered', getFilteredVenues);
 
 // Get a specific venue by its ID
 router.get('/:venueId', getVenueById);

@@ -13,13 +13,13 @@ const vendorSchema = new mongoose.Schema(
     },
     vendorType: {
       type: String,
-      required: function() {
+      required: function () {
         return this.businessType === 'vendor';
       }
     },
     venueType: {
       type: String,
-      required: function() {
+      required: function () {
         return this.businessType === 'venue';
       }
     },

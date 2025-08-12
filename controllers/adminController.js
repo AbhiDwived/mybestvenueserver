@@ -601,3 +601,13 @@ export const getRidesByVendor = async (req, res) => {
     res.status(500).json({ message: 'Error fetching vendor rides', error: error.message });
   }
 };
+// Logout admin (stateless, just a message)
+export const logoutAdmin = async (req, res) => {
+  try {
+    res.status(200).json({
+      message: "Admin logout successful. Please clear token on frontend.",
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error logging out admin", error: error.message });
+  }
+};
