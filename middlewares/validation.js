@@ -111,7 +111,6 @@ export const vendorValidation = {
       country: Joi.string(),
       zipCode: Joi.string()
     }),
-    serviceAreas: Joi.array().items(Joi.string()),
     description: Joi.string().max(1000),
     yearsInBusiness: Joi.number().integer().min(0),
     pricingRange: Joi.object({
@@ -155,10 +154,6 @@ export const vendorValidation = {
     email: Joi.string().email().optional(),
     vendorType: Joi.string().optional(),
     description: Joi.string().max(1000).optional(),
-    serviceAreas: Joi.alternatives().try(
-      Joi.array().items(Joi.string()),
-      Joi.string()
-    ).optional(),
     pricing: Joi.alternatives().try(
       Joi.string(),
       Joi.number()

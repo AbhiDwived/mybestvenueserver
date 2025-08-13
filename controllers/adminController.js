@@ -281,7 +281,7 @@ export const getAllVendors = async (req, res) => {
     const locationFilter = location ? {
       $or: [
         { 'address.city': { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } },
-        { serviceAreas: { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } }
+        { city: { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } }
       ]
     } : {};
     const vendors = await Vendor.find({
@@ -289,14 +289,11 @@ export const getAllVendors = async (req, res) => {
       isApproved: true
     });
 
-    // Collect unique locations from serviceAreas and address.city
+    // Collect unique locations from address.city
     const uniqueLocations = new Set();
     vendors.forEach(vendor => {
-      if (vendor.serviceAreas && Array.isArray(vendor.serviceAreas)) {
-        vendor.serviceAreas.forEach(area => uniqueLocations.add(area));
-      }
-      if (vendor.address?.city) {
-        uniqueLocations.add(vendor.address.city);
+      if (vendor.city) {
+        uniqueLocations.add(vendor.city);
       }
     });
 
@@ -311,7 +308,6 @@ export const getAllVendors = async (req, res) => {
       phone: vendor.phone,
       address: vendor.address || {},
       services: vendor.services || [],
-      serviceAreas: vendor.serviceAreas || [],
       pricing: vendor.pricing || [],
       pricingRange: vendor.pricingRange ? {
         min: vendor.pricingRange.min,
@@ -402,7 +398,7 @@ export const getVendorCountsByLocation = async (req, res) => {
     const locationFilter = location.toLowerCase() === 'all-india' ? {} : {
       $or: [
         { 'address.city': { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } },
-        { serviceAreas: { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } }
+        { city: { $regex: new RegExp(`^${location.replace('-', '\\s+')}$`, 'i') } }
       ]
     };
     const vendors = await Vendor.find({
@@ -487,7 +483,6 @@ export const getLatestVendorsByType = async (req, res) => {
         state: vendor.address?.state || '',
         country: vendor.address?.country || 'India'
       },
-      serviceAreas: vendor.serviceAreas || [],
       pricingRange: vendor.pricingRange ? {
         min: vendor.pricingRange.min,
         max: vendor.pricingRange.max,

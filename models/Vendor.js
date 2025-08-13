@@ -77,7 +77,6 @@ const vendorSchema = new mongoose.Schema(
       default: '',
     },
     services: [String],
-    serviceAreas: [String],
     description: String,
     yearsInBusiness: Number,
     licenses: [String],

@@ -11,7 +11,7 @@ export const getSavedVendors = async (req, res) => {
     const savedVendors = await SavedVendor.find({ user: userId })
       .populate({
         path: 'vendor',
-        select: 'businessName vendorType description serviceAreas address profilePicture galleryImages services pricingRange priceVeg priceNonVeg email phone contactName averageRating reviewCount'
+        select: 'businessName vendorType description address profilePicture galleryImages services pricingRange priceVeg priceNonVeg email phone contactName averageRating reviewCount'
       })
       .sort({ createdAt: -1 });
 
@@ -23,9 +23,7 @@ export const getSavedVendors = async (req, res) => {
         id: vendor._id.toString(),
         name: vendor.businessName,
         category: vendor.vendorType || vendor.category || 'Vendor',
-        location: vendor.serviceAreas?.length > 0
-          ? vendor.serviceAreas[0]
-          : vendor.address?.city && vendor.address?.state
+        location: vendor.address?.city && vendor.address?.state
             ? `${vendor.address.city}, ${vendor.address.state}`
             : vendor.address?.city || vendor.address?.state || 'Location not specified',
         contactEmail: vendor.email,
@@ -37,7 +35,6 @@ export const getSavedVendors = async (req, res) => {
         priceNonVeg: vendor.priceNonVeg || '1,200',
         services: vendor.services || [],
         address: vendor.address || {},
-        serviceAreas: vendor.serviceAreas || [],
         savedAt: saved.createdAt,
       } : null;
     }).filter(Boolean); // Remove null entries if any vendor was deleted

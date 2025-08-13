@@ -282,7 +282,7 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
     const cityName = city.replace(/-/g, ' ');
     searchQuery.$or = [
       { city: { $regex: cityName, $options: 'i' } },
-      { serviceAreas: { $in: [new RegExp(cityName, 'i')] } }
+      { city: { $in: [new RegExp(cityName, 'i')] } }
     ];
 
     if (businessName) {
@@ -312,7 +312,7 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
         isApproved: true,
         $or: [
           { city: { $regex: cityName, $options: 'i' } },
-          { serviceAreas: { $in: [new RegExp(cityName, 'i')] } }
+          { city: { $in: [new RegExp(cityName, 'i')] } }
         ],
         venueType: { $regex: type.replace(/-/g, ' '), $options: 'i' }
       };
@@ -347,7 +347,7 @@ router.get('/location/:city/:type/:slug', async (req, res) => {
         isApproved: true,
         $or: [
           { city: { $regex: cityName.split(' ')[0], $options: 'i' } },
-          { serviceAreas: { $in: [new RegExp(cityName.split(' ')[0], 'i')] } }
+          { city: { $in: [new RegExp(cityName.split(' ')[0], 'i')] } }
         ],
         venueType: { $regex: type.replace(/-/g, ' '), $options: 'i' }
       };
@@ -424,7 +424,7 @@ router.get('/:businessType/:city/:type/:slug', async (req, res) => {
     const cityName = city.replace(/-/g, ' ');
     searchQuery.$or = [
       { city: { $regex: cityName, $options: 'i' } },
-      { serviceAreas: { $in: [new RegExp(cityName, 'i')] } }
+      { city: { $in: [new RegExp(cityName, 'i')] } }
     ];
 
     // Add more precise business name matching
@@ -465,7 +465,7 @@ router.get('/:businessType/:city/:type/:slug', async (req, res) => {
         isApproved: true,
         $or: [
           { city: { $regex: cityName, $options: 'i' } },
-          { serviceAreas: { $in: [new RegExp(cityName, 'i')] } }
+          { city: { $in: [new RegExp(cityName, 'i')] } }
         ]
       };
 
@@ -509,7 +509,7 @@ router.get('/:businessType/:city/:type/:slug', async (req, res) => {
         isApproved: true,
         $or: [
           { city: { $regex: cityName.split(' ')[0], $options: 'i' } },
-          { serviceAreas: { $in: [new RegExp(cityName.split(' ')[0], 'i')] } }
+          { city: { $in: [new RegExp(cityName.split(' ')[0], 'i')] } }
         ]
       };
 
