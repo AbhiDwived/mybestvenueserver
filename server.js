@@ -211,7 +211,7 @@ app.use(
       const allowedOrigins = [
         'http://localhost:3000',
         'http://localhost:3001',
-        'http://vendors.mybestvenue.com',
+        'https://vendors.mybestvenue.com',
         'https://mybestvenue.com',
         'https://www.mybestvenue.com'
       ];
