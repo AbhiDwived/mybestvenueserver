@@ -19,6 +19,7 @@ import {
   updateRideByAdmin,
   deleteRideByAdmin,
   getRidesByVendor,
+  toggleVendorPremium,
   logoutAdmin
 } from '../controllers/adminController.js';
 import { createVendorByAdmin } from '../controllers/vendorController.js';
@@ -46,6 +47,7 @@ router.get('/latest_vendors_by_type', getLatestVendorsByType); //  Get latest ve
 router.get('/pending_vendor', VerifyAdmin, getPendingVendors); //  Get all vendors pending approval (admin only)
 router.put('/approve/:vendorId', VerifyAdmin, approveVendor); //  Approve a vendor by ID (admin only)
 router.delete('/delete-vendor/:vendorId', VerifyAdmin, deleteVendorByAdmin); //  Delete a vendor by ID (admin only)
+router.put('/toggle-premium/:vendorId', VerifyAdmin, toggleVendorPremium); //  Toggle vendor premium status (admin only)
 router.post(
   '/create-vendor',
   VerifyAdmin,

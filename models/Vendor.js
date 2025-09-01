@@ -144,6 +144,10 @@ const vendorSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
     // OTP-related fields
     otp: {
       type: String,

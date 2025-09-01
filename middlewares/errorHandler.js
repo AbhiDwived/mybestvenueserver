@@ -28,7 +28,7 @@ const errorHandler = (err, req, res, next) => {
   trackError(err, req);
 
   //  Log error details with context for debugging
-  logger.error('Error occurred:', {
+  logger.error(`Error occurred: ${err.message}`, {
     timestamp: new Date().toISOString(),
     path: req.path,
     method: req.method,

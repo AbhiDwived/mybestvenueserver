@@ -36,9 +36,18 @@ winston.addColors(colors);
 // Custom format for logs
 const format = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
-  winston.format.printf(
-    (info) => `${info.timestamp} ${info.level}: ${info.message}`
-  )
+  winston.format.errors({ stack: true }),
+  winston.format.json(),
+  winston.format.printf((info) => {
+    const { timestamp, level, message, ...meta } = info;
+    let log = `${timestamp} ${level}: ${message}`;
+    
+    if (Object.keys(meta).length > 0) {
+      log += ` ${JSON.stringify(meta, null, 2)}`;
+    }
+    
+    return log;
+  })
 );
 
 // Define which transports the logger must use
@@ -47,9 +56,17 @@ const transports = [
   new winston.transports.Console({
     format: winston.format.combine(
       winston.format.colorize({ all: true }),
-      winston.format.printf(
-        (info) => `${info.timestamp} ${info.level}: ${info.message}`
-      )
+      winston.format.errors({ stack: true }),
+      winston.format.printf((info) => {
+        const { timestamp, level, message, ...meta } = info;
+        let log = `${timestamp} ${level}: ${message}`;
+        
+        if (Object.keys(meta).length > 0) {
+          log += ` ${JSON.stringify(meta, null, 2)}`;
+        }
+        
+        return log;
+      })
     ),
   }),
   

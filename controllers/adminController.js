@@ -317,6 +317,7 @@ export const getAllVendors = async (req, res) => {
       profilePicture: vendor.profilePicture,
       galleryImages: vendor.galleryImages || [],
       isApproved: vendor.isApproved,
+      isPremium: vendor.isPremium || false,
       appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
       createdAt: vendor.createdAt,
       city: vendor.city,
@@ -596,6 +597,28 @@ export const getRidesByVendor = async (req, res) => {
     res.status(500).json({ message: 'Error fetching vendor rides', error: error.message });
   }
 };
+// Toggle vendor premium status
+export const toggleVendorPremium = async (req, res) => {
+  const { vendorId } = req.params;
+  const { isPremium } = req.body;
+  try {
+    const updatedVendor = await Vendor.findByIdAndUpdate(
+      vendorId,
+      { isPremium },
+      { new: true }
+    );
+    if (!updatedVendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
+    }
+    res.status(200).json({
+      message: `Vendor ${isPremium ? 'upgraded to Premium' : 'downgraded to Normal'}`,
+      vendor: updatedVendor,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating vendor premium status', error: error.message });
+  }
+};
+
 // Logout admin (stateless, just a message)
 export const logoutAdmin = async (req, res) => {
   try {
