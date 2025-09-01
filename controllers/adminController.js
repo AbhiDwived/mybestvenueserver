@@ -318,6 +318,7 @@ export const getAllVendors = async (req, res) => {
       galleryImages: vendor.galleryImages || [],
       isApproved: vendor.isApproved,
       isPremium: vendor.isPremium || false,
+      isTrusted: vendor.isTrusted || false,
       appliedDate: vendor.createdAt?.toISOString().split("T")[0] || "N/A",
       createdAt: vendor.createdAt,
       city: vendor.city,
@@ -602,9 +603,13 @@ export const toggleVendorPremium = async (req, res) => {
   const { vendorId } = req.params;
   const { isPremium } = req.body;
   try {
+    const updateData = { isPremium };
+    if (isPremium) {
+      updateData.isTrusted = false; // Mutual exclusivity
+    }
     const updatedVendor = await Vendor.findByIdAndUpdate(
       vendorId,
-      { isPremium },
+      updateData,
       { new: true }
     );
     if (!updatedVendor) {
@@ -616,6 +621,32 @@ export const toggleVendorPremium = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error updating vendor premium status', error: error.message });
+  }
+};
+
+// Toggle vendor trusted status
+export const toggleVendorTrusted = async (req, res) => {
+  const { vendorId } = req.params;
+  const { isTrusted } = req.body;
+  try {
+    const updateData = { isTrusted };
+    if (isTrusted) {
+      updateData.isPremium = false; // Mutual exclusivity
+    }
+    const updatedVendor = await Vendor.findByIdAndUpdate(
+      vendorId,
+      updateData,
+      { new: true }
+    );
+    if (!updatedVendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
+    }
+    res.status(200).json({
+      message: `Vendor ${isTrusted ? 'marked as Trusted' : 'unmarked as Trusted'}`,
+      vendor: updatedVendor,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating vendor trusted status', error: error.message });
   }
 };
 

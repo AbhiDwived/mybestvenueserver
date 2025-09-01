@@ -148,6 +148,10 @@ const vendorSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isTrusted: {
+      type: Boolean,
+      default: false,
+    },
     // OTP-related fields
     otp: {
       type: String,
