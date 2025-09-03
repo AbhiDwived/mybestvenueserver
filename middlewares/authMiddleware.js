@@ -190,8 +190,43 @@ export const VerifyAdminOrVendor = (req, res, next) => {
   }
 };
 
-// Placeholder for protect middleware (implement as needed)
+// Protect middleware - same as verifyToken
 export const protect = async (req, res, next) => {
-  //  Implement additional protection logic if needed
-  // ...existing code...
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    let user;
+    switch (decoded.role) {
+      case 'user':
+        user = await User.findById(decoded.id).select('-password');
+        break;
+      case 'vendor':
+        user = await Vendor.findById(decoded.id).select('-password');
+        break;
+      case 'admin':
+        user = await Admin.findById(decoded.id).select('-password');
+        break;
+      default:
+        return res.status(401).json({ message: 'Invalid user type' });
+    }
+
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expired' });
+    }
+    return res.status(401).json({ message: 'Invalid token' });
+  }
 };

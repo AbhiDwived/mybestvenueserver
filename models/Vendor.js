@@ -205,6 +205,62 @@ const vendorSchema = new mongoose.Schema(
         }
       ]
     },
+    // Spaces for venues and services for vendors
+    spaces: [
+      {
+        name: {
+          type: String,
+          required: true
+        },
+        type: {
+          type: String,
+          enum: ['Indoor', 'Outdoor', 'Mixed'],
+          default: 'Indoor'
+        },
+        businessType: {
+          type: String,
+          enum: ['vendor', 'venue'],
+          required: true
+        },
+        vendorType: String,
+        venueType: String,
+        description: String,
+        servicePrice: Number,
+        priceUnit: {
+          type: String,
+          enum: ['per event', 'per hour', 'per day', 'per person'],
+          default: 'per event'
+        },
+        additionalServices: String,
+        serviceCities: String,
+        minCapacity: Number,
+        maxCapacity: Number,
+        vegPrice: Number,
+        vegImflPrice: Number,
+        nonVegPrice: Number,
+        nonVegImflPrice: Number,
+        cuisines: [String],
+        contactName: String,
+        address: String,
+        city: String,
+        state: String,
+        country: {
+          type: String,
+          default: 'IN'
+        },
+        pinCode: String,
+        nearLocation: String,
+        profilePicture: String,
+        isActive: {
+          type: Boolean,
+          default: true
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now
+        }
+      }
+    ],
   },
   { timestamps: true }
 );

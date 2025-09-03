@@ -53,7 +53,9 @@ const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB file size limit for all image formats
+        fileSize: 10 * 1024 * 1024, // 10MB file size limit for all image formats
+        fieldSize: 2 * 1024 * 1024, // 2MB field size limit
+        fields: 1000 // Allow up to 1000 fields
     },
     onError: (err, next) => {
         // Handle Multer errors and pass to next middleware

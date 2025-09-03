@@ -110,9 +110,16 @@ router.post('/reset_password', resetPassword);
 // Update vendor profile
 router.put('/update/:id',
   VerifyAdminOrVendor,
-  upload.single('profilePicture'),
+  upload.any(),
   (req, res, next) => {
     req.imagePath = 'vendor-profiles';
+    // Handle the main profile picture file
+    if (req.files) {
+      const profilePicFile = req.files.find(file => file.fieldname === 'profilePicture');
+      if (profilePicFile) {
+        req.file = profilePicFile;
+      }
+    }
     next();
   },
   uploadToStorage,

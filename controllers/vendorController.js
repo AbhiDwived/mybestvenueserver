@@ -502,156 +502,143 @@ export const loginVendor = async (req, res) => {
 export const updateVendorProfile = async (req, res) => {
   try {
     const vendorId = req.params.id;
-    const updateData = {};
     
-    console.log('🔍 Raw request body:', JSON.stringify(req.body, null, 2));
-    
-    // Clean up any tab characters in keys
-    for (const key in req.body) {
-      const cleanKey = key.replace(/\t/g, '');
-      if (cleanKey !== key) {
-        req.body[cleanKey] = req.body[key];
-        delete req.body[key];
-      }
+    // Validate vendorId
+    if (!vendorId) {
+      return res.status(400).json({ message: 'Vendor ID is required' });
     }
     
-    // Handle all fields except pricing
-    for (const [key, value] of Object.entries(req.body)) {
-      if (key !== 'pricing' && !key.startsWith('pricing[')) {
-        updateData[key] = value;
-      }
-    }
+    console.log('🔍 Update request body keys:', Object.keys(req.body));
+    console.log('🔍 Has file:', !!req.file);
+    console.log('🔍 File URL:', req.fileUrl);
     
-    // Ensure businessType is properly handled
-    if (req.body.businessType) {
-      updateData.businessType = req.body.businessType;
-      
-      // Handle type-specific fields based on businessType
-      if (req.body.businessType === 'venue') {
-        if (req.body.venueType) {
-          updateData.venueType = req.body.venueType;
-        }
-        // Remove vendorType if switching to venue
-        updateData.$unset = { vendorType: 1 };
-      } else if (req.body.businessType === 'vendor') {
-        if (req.body.vendorType) {
-          updateData.vendorType = req.body.vendorType;
-        }
-        // Remove venueType if switching to vendor
-        updateData.$unset = { venueType: 1 };
-      }
-    }
-
-    // Handle pricing data from multiple possible sources
-    let pricingData = null;
-    
-    // Check if pricing is sent as array directly
-    if (req.body.pricing && Array.isArray(req.body.pricing)) {
-      pricingData = req.body.pricing;
-      console.log('🔍 Found pricing as array:', pricingData);
-    }
-    // Check if pricing is sent as JSON string
-    else if (req.body.pricing && typeof req.body.pricing === 'string') {
-      try {
-        pricingData = JSON.parse(req.body.pricing);
-        console.log('🔍 Found pricing as JSON string:', pricingData);
-      } catch (e) {
-        console.log('❌ Failed to parse pricing JSON:', req.body.pricing);
-      }
-    }
-    // Check form fields format
-    else {
-      const formPricing = [];
-      let i = 0;
-      while (req.body[`pricing[${i}][type]`] !== undefined) {
-        const type = req.body[`pricing[${i}][type]`];
-        const price = req.body[`pricing[${i}][price]`];
-        const currency = req.body[`pricing[${i}][currency]`];
-        const unit = req.body[`pricing[${i}][unit]`];
-        formPricing.push({ type, price, currency, unit });
-        i++;
-      }
-      if (formPricing.length > 0) {
-        pricingData = formPricing;
-        console.log('🔍 Found pricing as form fields:', pricingData);
-      }
-    }
-
-    // Validate and filter pricing data
-    if (pricingData && Array.isArray(pricingData)) {
-      const validPricing = pricingData.filter(item => {
-        const isValidType = item.type && String(item.type).trim().length > 0;
-        const isValidPrice = item.price && 
-                            String(item.price) !== 'null' && 
-                            item.price !== null && 
-                            String(item.price) !== '' && 
-                            !isNaN(Number(item.price)) && 
-                            Number(item.price) > 0;
-        
-        if (isValidType && isValidPrice) {
-          return true;
-        }
-        console.log('❌ Filtered out invalid pricing:', item);
-        return false;
-      }).map(item => ({
-        type: String(item.type).trim(),
-        price: Number(item.price),
-        currency: item.currency || 'INR',
-        unit: item.unit || 'per person'
-      }));
-
-      if (validPricing.length > 0) {
-        updateData.pricing = validPricing;
-        console.log('✅ Setting valid pricing:', validPricing);
-      }
-    }
-
-
-    // Handle address
-    if (req.body.address !== undefined) {
-      updateData.address = req.body.address;
-    }
-    
-    // Remove pricing field completely if it exists but is invalid
-    if ('pricing' in updateData && (!updateData.pricing || updateData.pricing.length === 0)) {
-      delete updateData.pricing;
-    }
-    
-    console.log('🔍 Final updateData:', JSON.stringify(updateData, null, 2));
     // Find the vendor first
     const vendor = await Vendor.findById(vendorId);
     if (!vendor) {
       return res.status(404).json({ message: 'Vendor not found' });
     }
 
-    // If there's a new image uploaded via ImageKit
+    // Build update object
+    const updateData = {
+      businessName: req.body.businessName,
+      businessType: req.body.businessType,
+      description: req.body.description,
+      contactName: req.body.contactName,
+      address: req.body.address,
+      city: req.body.city,
+      state: req.body.state,
+      country: req.body.country,
+      pinCode: req.body.pinCode,
+      nearLocation: req.body.nearLocation,
+      email: req.body.email,
+      phone: req.body.phone,
+      website: req.body.website,
+      serviceAreas: req.body.serviceAreas,
+      services: req.body.services
+    };
+    
+    // Add type-specific fields
+    if (req.body.businessType === 'vendor' && req.body.vendorType) {
+      updateData.vendorType = req.body.vendorType;
+    }
+    if (req.body.businessType === 'venue' && req.body.venueType) {
+      updateData.venueType = req.body.venueType;
+    }
+    
+    // Handle profile picture update
     if (req.fileUrl) {
       updateData.profilePicture = req.fileUrl;
     }
-
-    // Prepare update operations
-    const updateOperations = { $set: updateData };
-    if (updateData.$unset) {
-      updateOperations.$unset = updateData.$unset;
-      delete updateData.$unset; // Remove from $set operation
+    
+    // Handle pricing array
+    if (req.body.pricing) {
+      try {
+        let pricingData;
+        if (typeof req.body.pricing === 'string') {
+          pricingData = JSON.parse(req.body.pricing);
+        } else if (Array.isArray(req.body.pricing)) {
+          pricingData = req.body.pricing;
+        } else {
+          // Handle FormData format where pricing comes as separate fields
+          pricingData = [];
+          let index = 0;
+          while (req.body[`pricing[${index}][type]`] !== undefined) {
+            pricingData.push({
+              type: req.body[`pricing[${index}][type]`],
+              price: req.body[`pricing[${index}][price]`],
+              currency: req.body[`pricing[${index}][currency]`] || 'INR',
+              unit: req.body[`pricing[${index}][unit]`] || 'per plate'
+            });
+            index++;
+          }
+        }
+        // Filter out empty pricing entries
+        updateData.pricing = pricingData.filter(item => item.type && item.price);
+      } catch (error) {
+        console.error('Error parsing pricing data:', error);
+      }
     }
+    
+    // Handle spaces array
+    if (req.body.spaces) {
+      try {
+        let spacesData;
+        if (typeof req.body.spaces === 'string') {
+          spacesData = JSON.parse(req.body.spaces);
+        } else if (Array.isArray(req.body.spaces)) {
+          spacesData = req.body.spaces;
+        } else {
+          // Handle FormData format where spaces comes as separate fields
+          spacesData = [];
+          let index = 0;
+          while (req.body[`spaces[${index}][name]`] !== undefined) {
+            spacesData.push({
+              name: req.body[`spaces[${index}][name]`],
+              type: req.body[`spaces[${index}][type]`],
+              businessType: req.body[`spaces[${index}][businessType]`],
+              vendorType: req.body[`spaces[${index}][vendorType]`],
+              venueType: req.body[`spaces[${index}][venueType]`],
+              description: req.body[`spaces[${index}][description]`],
+              servicePrice: req.body[`spaces[${index}][servicePrice]`],
+              priceUnit: req.body[`spaces[${index}][priceUnit]`],
+              additionalServices: req.body[`spaces[${index}][additionalServices]`],
+              serviceCities: req.body[`spaces[${index}][serviceCities]`],
+              minCapacity: req.body[`spaces[${index}][minCapacity]`],
+              maxCapacity: req.body[`spaces[${index}][maxCapacity]`],
+              vegPrice: req.body[`spaces[${index}][vegPrice]`],
+              vegImflPrice: req.body[`spaces[${index}][vegImflPrice]`],
+              nonVegPrice: req.body[`spaces[${index}][nonVegPrice]`],
+              nonVegImflPrice: req.body[`spaces[${index}][nonVegImflPrice]`],
+              cuisines: req.body[`spaces[${index}][cuisines]`] ? req.body[`spaces[${index}][cuisines]`].split(',') : [],
+              contactName: req.body[`spaces[${index}][contactName]`],
+              address: req.body[`spaces[${index}][address]`],
+              city: req.body[`spaces[${index}][city]`],
+              state: req.body[`spaces[${index}][state]`],
+              country: req.body[`spaces[${index}][country]`],
+              pinCode: req.body[`spaces[${index}][pinCode]`],
+              nearLocation: req.body[`spaces[${index}][nearLocation]`],
+              profilePicture: req.body[`spaces[${index}][profilePicture]`],
+              isActive: req.body[`spaces[${index}][isActive]`] !== 'false'
+            });
+            index++;
+          }
+        }
+        updateData.spaces = spacesData;
+      } catch (error) {
+        console.error('Error parsing spaces data:', error);
+      }
+    }
+    
+    console.log('🔍 Final update data keys:', Object.keys(updateData));
 
     // Update the vendor profile
     const updatedVendor = await Vendor.findByIdAndUpdate(
       vendorId,
-      updateOperations,
-      { new: true }
+      { $set: updateData },
+      { new: true, runValidators: true }
     );
 
-    // Log the activity
-    await logVendorProfileUpdate(vendor, updateData, req);
-
-    // Return the complete updated vendor object
-    console.log("✅ Vendor profile updated successfully", {
-      vendorId,
-      pricingCount: updateData.pricing?.length || 0,
-      hasUnsetOperations: !!updateData.$unset
-    });
+    console.log("✅ Vendor profile updated successfully", vendorId);
     
     res.status(200).json({
       success: true,
@@ -660,11 +647,19 @@ export const updateVendorProfile = async (req, res) => {
       profilePicture: updatedVendor.profilePicture
     });
   } catch (error) {
-    console.error('Error updating vendor profile:', error);
+    console.error('❌ DETAILED ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      vendorId: req.params.id,
+      bodyKeys: Object.keys(req.body || {})
+    });
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to update profile',
-      error: error.message
+      message: error.message || 'Failed to update profile',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
