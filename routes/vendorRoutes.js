@@ -113,11 +113,20 @@ router.put('/update/:id',
   upload.any(),
   (req, res, next) => {
     req.imagePath = 'vendor-profiles';
+    console.log('📋 Route: Files received:', req.files ? req.files.map(f => f.fieldname) : 'none');
+    
     // Handle the main profile picture file
     if (req.files) {
       const profilePicFile = req.files.find(file => file.fieldname === 'profilePicture');
       if (profilePicFile) {
         req.file = profilePicFile;
+      }
+      
+      // Group space images
+      const spaceImages = req.files.filter(file => file.fieldname === 'spaceImages');
+      if (spaceImages.length > 0) {
+        req.files.spaceImages = spaceImages;
+        console.log('🏢 Route: Found', spaceImages.length, 'space images');
       }
     }
     next();

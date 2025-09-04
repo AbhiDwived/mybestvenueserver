@@ -510,6 +510,8 @@ export const updateVendorProfile = async (req, res) => {
     
     console.log('🔍 Update request body keys:', Object.keys(req.body));
     console.log('🔍 Has file:', !!req.file);
+    console.log('🔍 Has files:', !!req.files);
+    console.log('🔍 Files keys:', req.files ? Object.keys(req.files) : 'none');
     console.log('🔍 File URL:', req.fileUrl);
     
     // Find the vendor first
@@ -579,7 +581,7 @@ export const updateVendorProfile = async (req, res) => {
       }
     }
     
-    // Handle spaces array
+    // Handle spaces array with image uploads
     if (req.body.spaces) {
       try {
         let spacesData;
@@ -623,6 +625,67 @@ export const updateVendorProfile = async (req, res) => {
             index++;
           }
         }
+        
+        // Handle space image uploads
+        if (req.files && req.files.spaceImages) {
+          console.log('🖼️ Processing space images:', req.files.spaceImages.length);
+          const spaceImages = Array.isArray(req.files.spaceImages) ? req.files.spaceImages : [req.files.spaceImages];
+          
+          // Get space image indices from form data
+          const spaceImageIndices = [];
+          if (req.body.spaceImageIndex) {
+            if (Array.isArray(req.body.spaceImageIndex)) {
+              spaceImageIndices.push(...req.body.spaceImageIndex.map(idx => parseInt(idx)));
+            } else {
+              spaceImageIndices.push(parseInt(req.body.spaceImageIndex));
+            }
+          }
+          
+          for (let i = 0; i < spaceImages.length; i++) {
+            const file = spaceImages[i];
+            const spaceIndex = spaceImageIndices[i] !== undefined ? spaceImageIndices[i] : i;
+            
+            console.log(`🖼️ Processing space image ${i} for space index ${spaceIndex}`);
+            
+            if (spacesData[spaceIndex]) {
+              try {
+                // Upload space image to storage
+                let imageUrl;
+                if (STORAGE_TYPE === 's3') {
+                  const timestamp = Date.now();
+                  const fileName = `space_${vendorId}_${spaceIndex}_${timestamp}`;
+                  const key = `vendor-spaces/${fileName}`;
+                  
+                  const params = {
+                    Bucket: S3_BUCKET_NAME,
+                    Key: key,
+                    Body: file.buffer,
+                    ContentType: file.mimetype
+                  };
+                  
+                  const command = new PutObjectCommand(params);
+                  await s3Client.send(command);
+                  imageUrl = `https://${S3_BUCKET_NAME}.s3.amazonaws.com/${key}`;
+                } else {
+                  const uploadResponse = await imagekit.upload({
+                    file: file.buffer,
+                    fileName: `space_${vendorId}_${spaceIndex}_${Date.now()}`,
+                    folder: `vendor-spaces`
+                  });
+                  imageUrl = uploadResponse.url;
+                }
+                
+                spacesData[spaceIndex].profilePicture = imageUrl;
+                console.log(`✅ Space ${spaceIndex} image uploaded:`, imageUrl);
+              } catch (uploadError) {
+                console.error(`❌ Error uploading space ${spaceIndex} image:`, uploadError);
+              }
+            } else {
+              console.log(`❌ Space index ${spaceIndex} not found in spacesData`);
+            }
+          }
+        }
+        
         updateData.spaces = spacesData;
       } catch (error) {
         console.error('Error parsing spaces data:', error);
